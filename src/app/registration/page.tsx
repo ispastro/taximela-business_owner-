@@ -4,9 +4,10 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { z } from "zod";
+import { verifyBusiness } from "@/features/registration/api/verify-business";
 
 const LocationPickerMap = dynamic(
   () =>
@@ -25,7 +26,15 @@ const registrationSchema = z.object({
     .trim()
     .regex(/^(\+251|0)?[79]\d{8}$/, "Enter a valid phone number"),
   email: z.string().trim().email("Enter a valid email"),
+  nationalId: z
+    .string()
+    .trim()
+    .regex(/^\d{9}$/, "Enter valid 9-digit National ID"),
   businessName: z.string().trim().min(1, "Business name is required"),
+  businessTIN: z
+    .string()
+    .trim()
+    .regex(/^\d{10}$/, "Enter valid 10-digit TIN number"),
   category: z.string().trim().min(1, "Category is required"),
   description: z.string().trim().min(1, "Description is required"),
   addressLandmark: z.string().trim().min(1, "Address or landmark is required"),
@@ -67,13 +76,17 @@ function SectionTitle({ number, title, subtitle }: { number: number; title: stri
 
 export default function RegistrationPage() {
   const router = useRouter();
+  const [verificationStatus, setVerificationStatus] = useState<"idle" | "verifying" | "verified" | "failed">("idle");
+  const [verificationMessage, setVerificationMessage] = useState<string>("");
 
   const defaultValues = useMemo(
     () => ({
       fullName: "",
       phone: "",
       email: "",
+      nationalId: "",
       businessName: "",
+      businessTIN: "",
       category: "",
       description: "",
       addressLandmark: "",
@@ -91,6 +104,23 @@ export default function RegistrationPage() {
   } = useForm<RegistrationFormValues>({
     resolver: zodResolver(registrationSchema),
     defaultValues,
+  });
+
+  const verifyMutation = useMutation({
+    mutationFn: verifyBusiness,
+    onSuccess: (result) => {
+      if (result.isValid) {
+        setVerificationStatus("verified");
+        setVerificationMessage("Business verification successful!");
+      } else {
+        setVerificationStatus("failed");
+        setVerificationMessage(result.message || "Verification failed. Please check your details.");
+      }
+    },
+    onError: () => {
+      setVerificationStatus("failed");
+      setVerificationMessage("Unable to verify at this time. Please try again.");
+    },
   });
 
   const submitMutation = useMutation({
@@ -158,9 +188,21 @@ export default function RegistrationPage() {
               />
               {errors.email ? <p className="mt-1 text-sm text-rose-600">{errors.email.message}</p> : null}
 
+              <label className={`${labelClassName} mt-5 block`} htmlFor="nationalId">
+                NATIONAL ID
+              </label>
+              <input
+                id="nationalId"
+                placeholder="123456789 (9 digits)"
+                className={fieldClassName}
+                {...register("nationalId")}
+              />
+              {errors.nationalId ? <p className="mt-1 text-sm text-rose-600">{errors.nationalId.message}</p> : null}
+              <p className="mt-1 text-xs text-slate-500">Enter your Ethiopian National ID for identity verification</p>
+
               <div className="my-7 border-t border-slate-200 sm:my-8" />
 
-              <SectionTitle number={2} title="Business Details" subtitle="Service categorization." />
+              <SectionTitle number={2} title="Business Verification" subtitle="Official business documents." />
 
               <label className={labelClassName} htmlFor="businessName">
                 BUSINESS NAME
@@ -174,6 +216,24 @@ export default function RegistrationPage() {
               {errors.businessName ? (
                 <p className="mt-1 text-sm text-rose-600">{errors.businessName.message}</p>
               ) : null}
+
+              <label className={`${labelClassName} mt-5 block`} htmlFor="businessTIN">
+                BUSINESS TIN
+              </label>
+              <input
+                id="businessTIN"
+                placeholder="1234567890 (10 digits)"
+                className={fieldClassName}
+                {...register("businessTIN")}
+              />
+              {errors.businessTIN ? (
+                <p className="mt-1 text-sm text-rose-600">{errors.businessTIN.message}</p>
+              ) : null}
+              <p className="mt-1 text-xs text-slate-500">Enter your Ethiopian Tax Identification Number from ERCA</p>
+
+              <div className="my-7 border-t border-slate-200 sm:my-8" />
+
+              <SectionTitle number={3} title="Business Details" subtitle="Service categorization." />
 
               <label className={`${labelClassName} mt-5 block`} htmlFor="category">
                 CATEGORY
@@ -205,7 +265,7 @@ export default function RegistrationPage() {
             </section>
 
             <section>
-              <SectionTitle number={3} title="Service Location" subtitle="Pin your business on the map." />
+              <SectionTitle number={4} title="Service Location" subtitle="Pin your business on the map." />
 
               <Controller
                 control={control}
@@ -242,7 +302,7 @@ export default function RegistrationPage() {
                 {...register("addressLandmark")}
               />
               {errors.addressLandmark ? (
-                <p className="mt-1 text-sm text-red-600">{errors.addressLandmark.message}</p>
+                <p className="mt-1 text-sm text-rose-600">{errors.addressLandmark.message}</p>
               ) : null}
             </section>
           </div>
