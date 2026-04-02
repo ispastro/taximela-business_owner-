@@ -29,7 +29,7 @@ const registrationSchema = z.object({
   nationalId: z
     .string()
     .trim()
-    .regex(/^\d{9}$/, "Enter valid 9-digit National ID"),
+    .regex(/^\d{12}$/, "Enter valid 12-digit National ID"),
   businessName: z.string().trim().min(1, "Business name is required"),
   businessTIN: z
     .string()
@@ -193,7 +193,7 @@ export default function RegistrationPage() {
               </label>
               <input
                 id="nationalId"
-                placeholder="123456789 (9 digits)"
+                placeholder="123456789012 (12 digits)"
                 className={fieldClassName}
                 {...register("nationalId")}
               />
