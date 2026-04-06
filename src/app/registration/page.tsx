@@ -1,59 +1,46 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { z } from "zod";
-import { verifyBusiness } from "@/features/registration/api/verify-business";
+import { uploadToCloudinary } from "@/lib/cloudinary";
+import { getBusinessCategories, submitBusinessRegistration } from "@/features/registration/api/registration";
+import { useSessionStore } from "@/store/session-store";
 
 const LocationPickerMap = dynamic(
   () =>
     import("@/features/registration/components/location-picker-map").then(
       (module) => module.LocationPickerMap,
     ),
-  {
-    ssr: false,
-  },
+  { ssr: false },
 );
 
 const registrationSchema = z.object({
-  fullName: z.string().trim().min(1, "Full name is required"),
-  phone: z
-    .string()
-    .trim()
-    .regex(/^(\+251|0)?[79]\d{8}$/, "Enter a valid phone number"),
-  email: z.string().trim().email("Enter a valid email"),
-  nationalId: z
+  business_name: z.string().trim().min(1, "Business name is required"),
+  category_id: z.string().min(1, "Category is required"),
+  government_id_fan: z
     .string()
     .trim()
     .regex(/^\d{12}$/, "Enter valid 12-digit National ID"),
-  businessName: z.string().trim().min(1, "Business name is required"),
-  businessTIN: z
+  business_licence_number: z
     .string()
     .trim()
     .regex(/^\d{10}$/, "Enter valid 10-digit TIN number"),
-  category: z.string().trim().min(1, "Category is required"),
-  description: z.string().trim().min(1, "Description is required"),
-  addressLandmark: z.string().trim().min(1, "Address or landmark is required"),
+  government_id_photo: z
+    .instanceof(File, { message: "National ID photo is required" })
+    .refine((f) => f.size <= 5 * 1024 * 1024, "File must be under 5MB"),
+  business_license_photo: z
+    .instanceof(File, { message: "Business license photo is required" })
+    .refine((f) => f.size <= 5 * 1024 * 1024, "File must be under 5MB"),
   locationLat: z.number({ error: "Map pin is required" }),
   locationLng: z.number({ error: "Map pin is required" }),
 });
 
 type RegistrationFormValues = z.infer<typeof registrationSchema>;
-
-const categories = [
-  "Restaurant",
-  "Cafe",
-  "Retail",
-  "Hotel",
-  "Clinic",
-  "Beauty",
-  "Electronics",
-  "Other",
-];
 
 const fieldClassName =
   "mt-2 h-11 w-full rounded-lg border border-slate-300 bg-white px-4 text-base text-slate-900 outline-none transition focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 sm:text-sm";
@@ -74,22 +61,73 @@ function SectionTitle({ number, title, subtitle }: { number: number; title: stri
   );
 }
 
+function FileInput({
+  label,
+  hint,
+  error,
+  onChange,
+  previewUrl,
+}: {
+  label: string;
+  hint: string;
+  error?: string;
+  onChange: (file: File) => void;
+  previewUrl: string | null;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  return (
+    <div className="mt-5">
+      <p className={labelClassName}>{label}</p>
+      <div
+        onClick={() => inputRef.current?.click()}
+        className={`mt-2 flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed p-4 transition ${
+          error ? "border-rose-300 bg-rose-50" : "border-slate-300 bg-slate-50 hover:border-indigo-400 hover:bg-indigo-50"
+        }`}
+      >
+        {previewUrl ? (
+          <img src={previewUrl} alt="preview" className="h-24 w-auto rounded object-contain" />
+        ) : (
+          <>
+            <span className="text-2xl">📎</span>
+            <p className="mt-1 text-xs text-slate-500">{hint}</p>
+          </>
+        )}
+      </div>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*,application/pdf"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) onChange(file);
+        }}
+      />
+      {error ? <p className="mt-1 text-sm text-rose-600">{error}</p> : null}
+    </div>
+  );
+}
+
 export default function RegistrationPage() {
   const router = useRouter();
-  const [verificationStatus, setVerificationStatus] = useState<"idle" | "verifying" | "verified" | "failed">("idle");
-  const [verificationMessage, setVerificationMessage] = useState<string>("");
+  const accessToken = useSessionStore((s) => s.accessToken);
+  const [govIdPreview, setGovIdPreview] = useState<string | null>(null);
+  const [licensePreview, setLicensePreview] = useState<string | null>(null);
+
+  const { data: categories = [], isLoading: categoriesLoading } = useQuery({
+    queryKey: ["business-categories"],
+    queryFn: getBusinessCategories,
+  });
 
   const defaultValues = useMemo(
     () => ({
-      fullName: "",
-      phone: "",
-      email: "",
-      nationalId: "",
-      businessName: "",
-      businessTIN: "",
-      category: "",
-      description: "",
-      addressLandmark: "",
+      business_name: "",
+      category_id: "",
+      government_id_fan: "",
+      business_licence_number: "",
+      government_id_photo: undefined as unknown as File,
+      business_license_photo: undefined as unknown as File,
       locationLat: null as unknown as number,
       locationLng: null as unknown as number,
     }),
@@ -100,35 +138,33 @@ export default function RegistrationPage() {
     register,
     control,
     handleSubmit,
+    setValue,
     formState: { errors },
   } = useForm<RegistrationFormValues>({
     resolver: zodResolver(registrationSchema),
     defaultValues,
   });
 
-  const verifyMutation = useMutation({
-    mutationFn: verifyBusiness,
-    onSuccess: (result) => {
-      if (result.isValid) {
-        setVerificationStatus("verified");
-        setVerificationMessage("Business verification successful!");
-      } else {
-        setVerificationStatus("failed");
-        setVerificationMessage(result.message || "Verification failed. Please check your details.");
-      }
-    },
-    onError: () => {
-      setVerificationStatus("failed");
-      setVerificationMessage("Unable to verify at this time. Please try again.");
-    },
-  });
-
   const submitMutation = useMutation({
-    mutationFn: async (payload: RegistrationFormValues) => {
-      void payload;
-      await new Promise((resolve) => {
-        setTimeout(resolve, 600);
-      });
+    mutationFn: async (values: RegistrationFormValues) => {
+      const [governmentIdUrl, businessLicenseUrl] = await Promise.all([
+        uploadToCloudinary(values.government_id_photo),
+        uploadToCloudinary(values.business_license_photo),
+      ]);
+
+      return submitBusinessRegistration(
+        {
+          business_name: values.business_name,
+          category_id: values.category_id,
+          latitude: values.locationLat,
+          longitude: values.locationLng,
+          government_id_fan: values.government_id_fan,
+          business_licence_number: values.business_licence_number,
+          government_id_photo_url: governmentIdUrl,
+          business_license_photo_url: businessLicenseUrl,
+        },
+        accessToken ?? "",
+      );
     },
     onSuccess: () => {
       router.push("/status");
@@ -153,115 +189,97 @@ export default function RegistrationPage() {
         <form onSubmit={handleSubmit((values) => submitMutation.mutate(values))} className="pt-6 sm:pt-8">
           <div className="grid gap-8 lg:grid-cols-2 lg:gap-12">
             <section className="space-y-0">
-              <SectionTitle number={1} title="Owner Information" subtitle="Verification details." />
+              <SectionTitle number={1} title="Owner Verification" subtitle="Identity and tax documents." />
 
-              <label className={labelClassName} htmlFor="fullName">
-                FULL NAME
+              <label className={labelClassName} htmlFor="government_id_fan">
+                NATIONAL ID NUMBER
               </label>
               <input
-                id="fullName"
-                placeholder="John Doe"
-                className={fieldClassName}
-                {...register("fullName")}
-              />
-              {errors.fullName ? <p className="mt-1 text-sm text-rose-600">{errors.fullName.message}</p> : null}
-
-              <label className={`${labelClassName} mt-5 block`} htmlFor="phone">
-                PHONE
-              </label>
-              <input
-                id="phone"
-                placeholder="+251..."
-                className={fieldClassName}
-                {...register("phone")}
-              />
-              {errors.phone ? <p className="mt-1 text-sm text-rose-600">{errors.phone.message}</p> : null}
-
-              <label className={`${labelClassName} mt-5 block`} htmlFor="email">
-                EMAIL
-              </label>
-              <input
-                id="email"
-                placeholder="john@example.com"
-                className={fieldClassName}
-                {...register("email")}
-              />
-              {errors.email ? <p className="mt-1 text-sm text-rose-600">{errors.email.message}</p> : null}
-
-              <label className={`${labelClassName} mt-5 block`} htmlFor="nationalId">
-                NATIONAL ID
-              </label>
-              <input
-                id="nationalId"
+                id="government_id_fan"
                 placeholder="123456789012 (12 digits)"
                 className={fieldClassName}
-                {...register("nationalId")}
+                {...register("government_id_fan")}
               />
-              {errors.nationalId ? <p className="mt-1 text-sm text-rose-600">{errors.nationalId.message}</p> : null}
-              <p className="mt-1 text-xs text-slate-500">Enter your Ethiopian National ID for identity verification</p>
+              {errors.government_id_fan ? <p className="mt-1 text-sm text-rose-600">{errors.government_id_fan.message}</p> : null}
+              <p className="mt-1 text-xs text-slate-500">Your Ethiopian National ID number</p>
+
+              <Controller
+                control={control}
+                name="government_id_photo"
+                render={({ field }) => (
+                  <FileInput
+                    label="NATIONAL ID PHOTO"
+                    hint="Upload a clear photo of your National ID (JPG, PNG, PDF — max 5MB)"
+                    error={errors.government_id_photo?.message}
+                    previewUrl={govIdPreview}
+                    onChange={(file) => {
+                      field.onChange(file);
+                      setGovIdPreview(URL.createObjectURL(file));
+                    }}
+                  />
+                )}
+              />
 
               <div className="my-7 border-t border-slate-200 sm:my-8" />
 
               <SectionTitle number={2} title="Business Verification" subtitle="Official business documents." />
 
-              <label className={labelClassName} htmlFor="businessName">
+              <label className={labelClassName} htmlFor="business_name">
                 BUSINESS NAME
               </label>
               <input
-                id="businessName"
+                id="business_name"
                 placeholder="Your Business Name"
                 className={fieldClassName}
-                {...register("businessName")}
+                {...register("business_name")}
               />
-              {errors.businessName ? (
-                <p className="mt-1 text-sm text-rose-600">{errors.businessName.message}</p>
-              ) : null}
+              {errors.business_name ? <p className="mt-1 text-sm text-rose-600">{errors.business_name.message}</p> : null}
 
-              <label className={`${labelClassName} mt-5 block`} htmlFor="businessTIN">
+              <label className={`${labelClassName} mt-5 block`} htmlFor="business_licence_number">
                 BUSINESS TIN
               </label>
               <input
-                id="businessTIN"
+                id="business_licence_number"
                 placeholder="1234567890 (10 digits)"
                 className={fieldClassName}
-                {...register("businessTIN")}
+                {...register("business_licence_number")}
               />
-              {errors.businessTIN ? (
-                <p className="mt-1 text-sm text-rose-600">{errors.businessTIN.message}</p>
-              ) : null}
-              <p className="mt-1 text-xs text-slate-500">Enter your Ethiopian Tax Identification Number from ERCA</p>
+              {errors.business_licence_number ? <p className="mt-1 text-sm text-rose-600">{errors.business_licence_number.message}</p> : null}
+              <p className="mt-1 text-xs text-slate-500">Your Ethiopian Tax Identification Number from ERCA</p>
+
+              <Controller
+                control={control}
+                name="business_license_photo"
+                render={({ field }) => (
+                  <FileInput
+                    label="BUSINESS LICENSE PHOTO"
+                    hint="Upload a clear photo of your Business License (JPG, PNG, PDF — max 5MB)"
+                    error={errors.business_license_photo?.message}
+                    previewUrl={licensePreview}
+                    onChange={(file) => {
+                      field.onChange(file);
+                      setLicensePreview(URL.createObjectURL(file));
+                    }}
+                  />
+                )}
+              />
 
               <div className="my-7 border-t border-slate-200 sm:my-8" />
 
               <SectionTitle number={3} title="Business Details" subtitle="Service categorization." />
 
-              <label className={`${labelClassName} mt-5 block`} htmlFor="category">
+              <label className={`${labelClassName} mt-5 block`} htmlFor="category_id">
                 CATEGORY
               </label>
-              <select id="category" className={fieldClassName} {...register("category")}>
-                <option value="">Select Category</option>
-                {categories.map((category) => (
-                  <option key={category} value={category}>
-                    {category}
+              <select id="category_id" className={fieldClassName} {...register("category_id")}>
+                <option value="">{categoriesLoading ? "Loading categories..." : "Select Category"}</option>
+                {categories.map((cat) => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.name}
                   </option>
                 ))}
               </select>
-              {errors.category ? <p className="mt-1 text-sm text-rose-600">{errors.category.message}</p> : null}
-
-              <label className={`${labelClassName} mt-5 block`} htmlFor="description">
-                DESCRIPTION
-              </label>
-              <textarea
-                id="description"
-                rows={4}
-                placeholder="Describe your business..."
-                className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100"
-                {...register("description")}
-              />
-              {errors.description ? (
-                <p className="mt-1 text-sm text-rose-600">{errors.description.message}</p>
-              ) : null}
-
+              {errors.category_id ? <p className="mt-1 text-sm text-rose-600">{errors.category_id.message}</p> : null}
             </section>
 
             <section>
@@ -290,19 +308,6 @@ export default function RegistrationPage() {
 
               {errors.locationLat || errors.locationLng ? (
                 <p className="mt-2 text-sm text-rose-600">Map pin is required</p>
-              ) : null}
-
-              <label className={`${labelClassName} mt-5 block`} htmlFor="addressLandmark">
-                ADDRESS / LANDMARK
-              </label>
-              <input
-                id="addressLandmark"
-                placeholder="e.g. Near bole bridge"
-                className={fieldClassName}
-                {...register("addressLandmark")}
-              />
-              {errors.addressLandmark ? (
-                <p className="mt-1 text-sm text-rose-600">{errors.addressLandmark.message}</p>
               ) : null}
             </section>
           </div>
