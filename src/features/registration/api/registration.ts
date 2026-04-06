@@ -6,7 +6,6 @@ export type BusinessRegistrationPayload = {
   latitude: number;
   longitude: number;
   government_id_fan: string;
-  business_licence_number: string;
   government_id_photo_url: string;
   business_license_photo_url: string;
 };

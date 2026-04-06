@@ -26,10 +26,6 @@ const registrationSchema = z.object({
     .string()
     .trim()
     .regex(/^\d{12}$/, "Enter valid 12-digit National ID"),
-  business_licence_number: z
-    .string()
-    .trim()
-    .regex(/^\d{10}$/, "Enter valid 10-digit TIN number"),
   government_id_photo: z
     .instanceof(File, { message: "National ID photo is required" })
     .refine((f) => f.size <= 5 * 1024 * 1024, "File must be under 5MB"),
@@ -125,7 +121,6 @@ export default function RegistrationPage() {
       business_name: "",
       category_id: "",
       government_id_fan: "",
-      business_licence_number: "",
       government_id_photo: undefined as unknown as File,
       business_license_photo: undefined as unknown as File,
       locationLat: null as unknown as number,
@@ -159,7 +154,6 @@ export default function RegistrationPage() {
           latitude: values.locationLat,
           longitude: values.locationLng,
           government_id_fan: values.government_id_fan,
-          business_licence_number: values.business_licence_number,
           government_id_photo_url: governmentIdUrl,
           business_license_photo_url: businessLicenseUrl,
         },
@@ -234,18 +228,6 @@ export default function RegistrationPage() {
                 {...register("business_name")}
               />
               {errors.business_name ? <p className="mt-1 text-sm text-rose-600">{errors.business_name.message}</p> : null}
-
-              <label className={`${labelClassName} mt-5 block`} htmlFor="business_licence_number">
-                BUSINESS TIN
-              </label>
-              <input
-                id="business_licence_number"
-                placeholder="1234567890 (10 digits)"
-                className={fieldClassName}
-                {...register("business_licence_number")}
-              />
-              {errors.business_licence_number ? <p className="mt-1 text-sm text-rose-600">{errors.business_licence_number.message}</p> : null}
-              <p className="mt-1 text-xs text-slate-500">Your Ethiopian Tax Identification Number from ERCA</p>
 
               <Controller
                 control={control}
