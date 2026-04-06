@@ -1,6 +1,7 @@
 "use client";
 
 import type { LeafletMouseEvent } from "leaflet";
+import { useEffect, useState } from "react";
 import { CircleMarker, MapContainer, TileLayer, useMapEvents } from "react-leaflet";
 
 type LocationPickerMapProps = {
@@ -26,8 +27,22 @@ function MapClickHandler({
 }
 
 export function LocationPickerMap({ latitude, longitude, onPick }: LocationPickerMapProps) {
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
   const selectedPosition =
     latitude !== null && longitude !== null ? ([latitude, longitude] as [number, number]) : null;
+
+  if (!isMounted) {
+    return (
+      <div className="flex h-[240px] w-full items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-slate-100 sm:h-[300px]">
+        <p className="text-sm text-slate-500">Loading map...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="overflow-hidden rounded-lg border border-slate-200 bg-slate-100">
