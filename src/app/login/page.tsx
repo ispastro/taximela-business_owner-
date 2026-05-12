@@ -4,12 +4,14 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { signInWithEmail, signUpWithEmail } from "@/lib/firebase";
 import { useSessionStore } from "@/store/session-store";
+import { apiRequest } from "@/lib/api-client";
 
 export default function LoginPage() {
   const router = useRouter();
   const setSession = useSessionStore((s) => s.setSession);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [fullName, setFullName] = useState("");
   const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -20,12 +22,30 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const result = isSignUp
-        ? await signUpWithEmail(email, password)
-        : await signInWithEmail(email, password);
+      if (isSignUp) {
+        // Sign up flow
+        const result = await signUpWithEmail(email, password);
+        
+        // Create user in backend database
+        await apiRequest("/users", {
+          method: "POST",
+          body: {
+            full_name: fullName || null,
+            preferred_language: "en",
+            is_commuter: false,
+            is_business_owner: false,
+          },
+          token: result.token,
+        });
 
-      setSession({ ownerId: result.uid, accessToken: result.token });
-      router.push("/registration");
+        setSession({ ownerId: result.uid, accessToken: result.token });
+        router.push("/registration");
+      } else {
+        // Sign in flow
+        const result = await signInWithEmail(email, password);
+        setSession({ ownerId: result.uid, accessToken: result.token });
+        router.push("/registration");
+      }
     } catch (err) {
       setError((err as Error).message || "Authentication failed");
     } finally {
@@ -44,6 +64,22 @@ export default function LoginPage() {
         </p>
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+          {isSignUp && (
+            <div>
+              <label className="text-sm font-medium text-slate-700" htmlFor="fullName">
+                Full Name (Optional)
+              </label>
+              <input
+                id="fullName"
+                type="text"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                className="mt-1 h-11 w-full rounded-lg border border-slate-300 px-4 text-sm outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100"
+                placeholder="Your full name"
+              />
+            </div>
+          )}
+
           <div>
             <label className="text-sm font-medium text-slate-700" htmlFor="email">
               Email
