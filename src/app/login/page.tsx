@@ -35,7 +35,7 @@ export default function LoginPage() {
         const result = await signUpWithEmail(email, password);
         
         // Create user in backend database
-        await apiRequest("/users", {
+        await apiRequest("/api/users", {
           method: "POST",
           body: {
             full_name: fullName || null,
