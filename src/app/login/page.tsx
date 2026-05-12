@@ -82,7 +82,7 @@ export default function LoginPage() {
                 type="text"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
-                className="mt-1 h-11 w-full rounded-lg border border-slate-300 px-4 text-sm outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100"
+                className="mt-1 h-11 w-full rounded-lg border border-slate-300 bg-white px-4 text-sm text-slate-900 outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100"
                 placeholder="Your full name"
               />
             </div>
@@ -97,7 +97,7 @@ export default function LoginPage() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="mt-1 h-11 w-full rounded-lg border border-slate-300 px-4 text-sm outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100"
+              className="mt-1 h-11 w-full rounded-lg border border-slate-300 bg-white px-4 text-sm text-slate-900 outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100"
               placeholder="you@example.com"
               required
             />
@@ -112,7 +112,7 @@ export default function LoginPage() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="mt-1 h-11 w-full rounded-lg border border-slate-300 px-4 text-sm outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100"
+              className="mt-1 h-11 w-full rounded-lg border border-slate-300 bg-white px-4 text-sm text-slate-900 outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100"
               placeholder="••••••••"
               required
             />
