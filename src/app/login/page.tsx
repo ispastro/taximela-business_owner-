@@ -35,16 +35,24 @@ export default function LoginPage() {
         const result = await signUpWithEmail(email, password);
         
         // Create user in backend database
-        await apiRequest("/api/users", {
-          method: "POST",
-          body: {
-            full_name: fullName || null,
-            preferred_language: "en",
-            is_commuter: false,
-            is_business_owner: false,
-          },
-          token: result.token,
-        });
+        try {
+          await apiRequest("/api/users", {
+            method: "POST",
+            body: {
+              full_name: fullName || null,
+              preferred_language: "en",
+              is_commuter: false,
+              is_business_owner: false,
+            },
+            token: result.token,
+          });
+        } catch (apiError: any) {
+          // If user already exists in backend, that's okay - they might have registered via mobile
+          if (apiError.status !== 409 && apiError.status !== 400) {
+            throw apiError;
+          }
+          // Continue anyway - user exists in backend
+        }
 
         setSession({ ownerId: result.uid, accessToken: result.token });
         router.push("/registration");
@@ -54,8 +62,25 @@ export default function LoginPage() {
         setSession({ ownerId: result.uid, accessToken: result.token });
         router.push("/registration");
       }
-    } catch (err) {
-      setError((err as Error).message || "Authentication failed");
+    } catch (err: any) {
+      // Handle Firebase errors with user-friendly messages
+      let errorMessage = "Authentication failed";
+      
+      if (err.code === "auth/email-already-in-use") {
+        errorMessage = "This email is already registered. Please sign in instead.";
+      } else if (err.code === "auth/weak-password") {
+        errorMessage = "Password should be at least 6 characters.";
+      } else if (err.code === "auth/invalid-email") {
+        errorMessage = "Please enter a valid email address.";
+      } else if (err.code === "auth/user-not-found") {
+        errorMessage = "No account found with this email. Please sign up.";
+      } else if (err.code === "auth/wrong-password") {
+        errorMessage = "Incorrect password. Please try again.";
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -119,8 +144,11 @@ export default function LoginPage() {
           </div>
 
           {error && (
-            <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-              {error}
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+              <div className="flex items-start gap-2">
+                <span className="text-amber-600">⚠️</span>
+                <p className="text-sm text-amber-800">{error}</p>
+              </div>
             </div>
           )}
 
