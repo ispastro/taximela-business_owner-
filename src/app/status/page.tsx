@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { getMyApplications } from "@/features/registration/api/registration";
 import { useSessionStore } from "@/store/session-store";
+import { ProtectedRoute } from "@/lib/auth-provider";
 
 const statusStyles: Record<string, { label: string; className: string }> = {
   pending_review: {
@@ -21,6 +22,14 @@ const statusStyles: Record<string, { label: string; className: string }> = {
 };
 
 export default function StatusPage() {
+  return (
+    <ProtectedRoute>
+      <StatusContent />
+    </ProtectedRoute>
+  );
+}
+
+function StatusContent() {
   const accessToken = useSessionStore((s) => s.accessToken);
 
   const { data, isLoading, isError } = useQuery({

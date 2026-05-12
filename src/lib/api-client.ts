@@ -50,7 +50,17 @@ export async function apiRequest<T>(
       message = response.statusText || message;
     }
 
-    throw new ApiError(message, response.status, code);
+    const error = new ApiError(message, response.status, code);
+    
+    if (response.status === 401) {
+      if (typeof window !== "undefined") {
+        const { useSessionStore } = await import("@/store/session-store");
+        useSessionStore.getState().clearSession();
+        window.location.href = "/login";
+      }
+    }
+
+    throw error;
   }
 
   if (response.status === 204) {

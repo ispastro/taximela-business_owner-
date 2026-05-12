@@ -10,6 +10,7 @@ import { z } from "zod";
 import { uploadToCloudinary } from "@/lib/cloudinary";
 import { getBusinessCategories, submitBusinessRegistration } from "@/features/registration/api/registration";
 import { useSessionStore } from "@/store/session-store";
+import { ProtectedRoute } from "@/lib/auth-provider";
 
 const LocationPickerMap = dynamic(
   () =>
@@ -26,6 +27,7 @@ const registrationSchema = z.object({
     .string()
     .trim()
     .regex(/^\d{12}$/, "Enter valid 12-digit National ID"),
+  business_licence_number: z.string().trim().min(1, "Business license number is required"),
   government_id_photo: z
     .instanceof(File, { message: "National ID photo is required" })
     .refine((f) => f.size <= 5 * 1024 * 1024, "File must be under 5MB"),
@@ -106,6 +108,14 @@ function FileInput({
 }
 
 export default function RegistrationPage() {
+  return (
+    <ProtectedRoute>
+      <RegistrationForm />
+    </ProtectedRoute>
+  );
+}
+
+function RegistrationForm() {
   const router = useRouter();
   const accessToken = useSessionStore((s) => s.accessToken);
   const [govIdPreview, setGovIdPreview] = useState<string | null>(null);
@@ -121,6 +131,7 @@ export default function RegistrationPage() {
       business_name: "",
       category_id: "",
       government_id_fan: "",
+      business_licence_number: "",
       government_id_photo: undefined as unknown as File,
       business_license_photo: undefined as unknown as File,
       locationLat: null as unknown as number,
@@ -154,6 +165,7 @@ export default function RegistrationPage() {
           latitude: values.locationLat,
           longitude: values.locationLng,
           government_id_fan: values.government_id_fan,
+          business_licence_number: values.business_licence_number,
           government_id_photo_url: governmentIdUrl,
           business_license_photo_url: businessLicenseUrl,
         },
@@ -196,6 +208,18 @@ export default function RegistrationPage() {
               />
               {errors.government_id_fan ? <p className="mt-1 text-sm text-rose-600">{errors.government_id_fan.message}</p> : null}
               <p className="mt-1 text-xs text-slate-500">Your Ethiopian National ID number</p>
+
+              <label className={`${labelClassName} mt-5 block`} htmlFor="business_licence_number">
+                BUSINESS LICENSE NUMBER
+              </label>
+              <input
+                id="business_licence_number"
+                placeholder="Enter your business license number"
+                className={fieldClassName}
+                {...register("business_licence_number")}
+              />
+              {errors.business_licence_number ? <p className="mt-1 text-sm text-rose-600">{errors.business_licence_number.message}</p> : null}
+              <p className="mt-1 text-xs text-slate-500">Your official business license/TIN number</p>
 
               <Controller
                 control={control}

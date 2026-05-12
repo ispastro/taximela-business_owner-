@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "firebase/auth";
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, User } from "firebase/auth";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDq-F0DEMOXC0TjXY3PfjgUgktJg4TPQDw",
@@ -28,4 +28,14 @@ export async function signUpWithEmail(email: string, password: string) {
 
 export async function signOutUser() {
   await signOut(auth);
+}
+
+export async function getCurrentUser(): Promise<User | null> {
+  return auth.currentUser;
+}
+
+export async function refreshToken(): Promise<string | null> {
+  const user = auth.currentUser;
+  if (!user) return null;
+  return await user.getIdToken(true);
 }

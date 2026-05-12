@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { getDashboardSummary, getMyBusinesses } from "@/features/registration/api/registration";
 import { useSessionStore } from "@/store/session-store";
+import { ProtectedRoute } from "@/lib/auth-provider";
 
 function StatCard({ label, value, className }: { label: string; value: number; className: string }) {
   return (
@@ -15,6 +16,14 @@ function StatCard({ label, value, className }: { label: string; value: number; c
 }
 
 export default function DashboardPage() {
+  return (
+    <ProtectedRoute>
+      <DashboardContent />
+    </ProtectedRoute>
+  );
+}
+
+function DashboardContent() {
   const accessToken = useSessionStore((s) => s.accessToken);
 
   const { data: summary, isLoading: summaryLoading } = useQuery({

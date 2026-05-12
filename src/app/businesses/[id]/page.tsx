@@ -14,6 +14,7 @@ import {
 } from "@/features/registration/api/registration";
 import { uploadToCloudinary } from "@/lib/cloudinary";
 import { useSessionStore } from "@/store/session-store";
+import { ProtectedRoute } from "@/lib/auth-provider";
 
 const LocationPickerMap = dynamic(
   () =>
@@ -39,6 +40,14 @@ const fieldClassName =
 const labelClassName = "text-xs font-semibold tracking-[0.14em] text-slate-500";
 
 export default function BusinessDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  return (
+    <ProtectedRoute>
+      <BusinessDetailContent params={params} />
+    </ProtectedRoute>
+  );
+}
+
+function BusinessDetailContent({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const accessToken = useSessionStore((s) => s.accessToken);
   const queryClient = useQueryClient();
