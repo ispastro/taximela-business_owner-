@@ -16,6 +16,14 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  const handleToggleMode = () => {
+    setIsSignUp(!isSignUp);
+    setError("");
+    setEmail("");
+    setPassword("");
+    setFullName("");
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -126,7 +134,8 @@ export default function LoginPage() {
         </form>
 
         <button
-          onClick={() => setIsSignUp(!isSignUp)}
+          type="button"
+          onClick={handleToggleMode}
           className="mt-4 w-full text-center text-sm text-slate-600 hover:text-indigo-600"
         >
           {isSignUp ? "Already have an account? Sign in" : "Don't have an account? Sign up"}
