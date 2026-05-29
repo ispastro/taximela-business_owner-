@@ -26,20 +26,19 @@ const LocationPickerMap = dynamic(
 
 const editSchema = z.object({
   business_name: z.string().trim().min(1, "Business name is required"),
-  category_id: z.string().min(1, "Category is required"),
-  locationLat: z.number({ error: "Map pin is required" }),
-  locationLng: z.number({ error: "Map pin is required" }),
+  category_id:   z.string().min(1, "Category is required"),
+  locationLat:   z.number({ error: "Map pin is required" }),
+  locationLng:   z.number({ error: "Map pin is required" }),
   business_logo: z.instanceof(File).optional(),
 });
 
 type EditFormValues = z.infer<typeof editSchema>;
 
-const fieldClassName =
-  "mt-2 h-11 w-full rounded-lg border border-slate-300 bg-white px-4 text-base text-slate-900 outline-none transition focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 sm:text-sm";
-
-const labelClassName = "text-xs font-semibold tracking-[0.14em] text-slate-500";
-
-export default function BusinessDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default function BusinessDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
   return (
     <ProtectedRoute>
       <BusinessDetailContent params={params} />
@@ -47,38 +46,43 @@ export default function BusinessDetailPage({ params }: { params: Promise<{ id: s
   );
 }
 
-function BusinessDetailContent({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params);
-  const accessToken = useSessionStore((s) => s.accessToken);
-  const queryClient = useQueryClient();
-  const [isEditing, setIsEditing] = useState(false);
-  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+function BusinessDetailContent({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id }         = use(params);
+  const accessToken    = useSessionStore((s) => s.accessToken);
+  const queryClient    = useQueryClient();
+  const [isEditing,    setIsEditing]    = useState(false);
+  const [logoPreview,  setLogoPreview]  = useState<string | null>(null);
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ["business", id],
-    queryFn: () => getBusinessById(accessToken ?? "", id),
-    enabled: !!accessToken,
+    queryFn:  () => getBusinessById(accessToken ?? "", id),
+    enabled:  !!accessToken,
   });
 
   const { data: categories = [] } = useQuery({
     queryKey: ["business-categories"],
-    queryFn: getBusinessCategories,
+    queryFn:  getBusinessCategories,
   });
 
   const business = data?.data;
 
-  const { register, control, handleSubmit, formState: { errors } } = useForm<EditFormValues>({
-    resolver: zodResolver(editSchema),
-    values: business
-      ? {
-          business_name: business.name,
-          category_id: business.category_id ?? "",
-          locationLat: business.latitude,
-          locationLng: business.longitude,
-          business_logo: undefined,
-        }
-      : undefined,
-  });
+  const { register, control, handleSubmit, formState: { errors } } =
+    useForm<EditFormValues>({
+      resolver: zodResolver(editSchema),
+      values: business
+        ? {
+            business_name: business.name,
+            category_id:   business.category_id ?? "",
+            locationLat:   business.latitude,
+            locationLng:   business.longitude,
+            business_logo: undefined,
+          }
+        : undefined,
+    });
 
   const updateMutation = useMutation({
     mutationFn: async (values: EditFormValues) => {
@@ -88,9 +92,9 @@ function BusinessDetailContent({ params }: { params: Promise<{ id: string }> }) 
       }
       return updateBusiness(accessToken ?? "", id, {
         business_name: values.business_name,
-        category_id: values.category_id,
-        latitude: values.locationLat,
-        longitude: values.locationLng,
+        category_id:   values.category_id,
+        latitude:      values.locationLat,
+        longitude:     values.locationLng,
         ...(logoUrl ? { business_logo: logoUrl } : {}),
       });
     },
@@ -101,74 +105,90 @@ function BusinessDetailContent({ params }: { params: Promise<{ id: string }> }) 
     },
   });
 
+  /* ── Loading ── */
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-slate-50 px-4 py-10">
-        <div className="mx-auto max-w-3xl space-y-4">
+      <div className="min-h-screen bg-shell px-4 py-10">
+        <div className="mx-auto max-w-3xl space-y-3">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="h-16 animate-pulse rounded-xl bg-slate-200" />
+            <div key={i} className="tx-skeleton h-14" />
           ))}
         </div>
       </div>
     );
   }
 
+  /* ── Error ── */
   if (isError || !business) {
     return (
-      <div className="min-h-screen bg-slate-50 px-4 py-10">
-        <div className="mx-auto max-w-3xl rounded-xl border border-rose-200 bg-rose-50 p-6 text-center text-sm text-rose-700">
-          Failed to load business details.
-          <Link href="/dashboard" className="ml-2 font-medium underline">Go back</Link>
+      <div className="min-h-screen bg-shell px-4 py-10">
+        <div className="mx-auto max-w-3xl tx-alert tx-alert-error text-center">
+          Failed to load business details.{" "}
+          <Link href="/dashboard" className="font-semibold underline">
+            Go back
+          </Link>
         </div>
       </div>
     );
   }
 
+  /* ── Main ── */
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-6 sm:px-6 sm:py-10">
+    <div className="min-h-screen bg-shell px-4 py-6 sm:px-6 sm:py-10">
       <main className="mx-auto w-full max-w-3xl">
+
         {/* Header */}
-        <div className="flex items-start justify-between">
+        <div className="flex items-start justify-between mb-6">
           <div>
-            <Link href="/dashboard" className="text-sm text-slate-500 hover:text-indigo-600">← Dashboard</Link>
-            <h1 className="mt-1 text-2xl font-bold text-slate-900 sm:text-3xl">{business.name}</h1>
-            <p className="mt-1 text-sm text-slate-500">{business.category_name ?? "—"}</p>
+            <Link
+              href="/dashboard"
+              className="tx-sub-label hover:text-accent transition-colors"
+              style={{ fontSize: "12px" }}
+            >
+              ← Dashboard
+            </Link>
+            <h1 className="tx-page-title mt-1">{business.name}</h1>
+            <p className="tx-sub-label mt-0.5">{business.category_name ?? "—"}</p>
           </div>
           <div className="flex items-center gap-2">
-            <span className={`rounded-full border px-3 py-1 text-xs font-medium ${
-              business.status === "active"
-                ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                : "border-rose-200 bg-rose-50 text-rose-700"
-            }`}>
+            <span
+              className={
+                business.status === "active"
+                  ? "tx-badge tx-badge-green"
+                  : "tx-badge tx-badge-red"
+              }
+            >
               {business.status === "active" ? "Active" : "Suspended"}
             </span>
             <button
               onClick={() => setIsEditing((v) => !v)}
-              className="inline-flex h-9 items-center justify-center rounded-lg border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700 hover:border-indigo-400 hover:text-indigo-600"
+              className="tx-btn-ghost"
+              style={{ height: "32px", fontSize: "12px" }}
             >
               {isEditing ? "Cancel" : "Edit"}
             </button>
           </div>
         </div>
 
-        {/* View Mode */}
+        {/* ── View mode ── */}
         {!isEditing && (
-          <div className="mt-6 space-y-4">
-            <div className="rounded-xl border border-slate-200 bg-white p-5">
-              <p className={labelClassName}>LOCATION</p>
-              <p className="mt-1 text-sm text-slate-700">
+          <div className="space-y-3">
+            <div className="tx-panel p-4">
+              <p className="tx-label mb-2">Location</p>
+              <p className="tx-table-num">
                 {business.latitude}, {business.longitude}
               </p>
             </div>
 
-            <div className="rounded-xl border border-slate-200 bg-white p-5">
-              <p className={labelClassName}>DOCUMENTS</p>
-              <div className="mt-3 flex flex-col gap-3 sm:flex-row">
+            <div className="tx-panel p-4">
+              <p className="tx-label mb-3">Documents</p>
+              <div className="flex flex-col gap-2 sm:flex-row">
                 <a
                   href={business.government_id_photo_url}
                   target="_blank"
                   rel="noreferrer"
-                  className="text-sm font-medium text-indigo-600 underline-offset-4 hover:underline"
+                  className="tx-sub-label hover:text-accent transition-colors"
+                  style={{ fontSize: "12px" }}
                 >
                   View National ID →
                 </a>
@@ -176,7 +196,8 @@ function BusinessDetailContent({ params }: { params: Promise<{ id: string }> }) 
                   href={business.license_photo_url}
                   target="_blank"
                   rel="noreferrer"
-                  className="text-sm font-medium text-indigo-600 underline-offset-4 hover:underline"
+                  className="tx-sub-label hover:text-accent transition-colors"
+                  style={{ fontSize: "12px" }}
                 >
                   View Business License →
                 </a>
@@ -184,9 +205,9 @@ function BusinessDetailContent({ params }: { params: Promise<{ id: string }> }) 
             </div>
 
             {business.approved_at && (
-              <div className="rounded-xl border border-slate-200 bg-white p-5">
-                <p className={labelClassName}>APPROVED AT</p>
-                <p className="mt-1 text-sm text-slate-700">
+              <div className="tx-panel p-4">
+                <p className="tx-label mb-2">Approved At</p>
+                <p className="tx-table-num">
                   {new Date(business.approved_at).toLocaleDateString()}
                 </p>
               </div>
@@ -194,42 +215,78 @@ function BusinessDetailContent({ params }: { params: Promise<{ id: string }> }) 
           </div>
         )}
 
-        {/* Edit Mode */}
+        {/* ── Edit mode ── */}
         {isEditing && (
-          <form onSubmit={handleSubmit((v) => updateMutation.mutate(v))} className="mt-6 space-y-5">
-            <div className="rounded-xl border border-slate-200 bg-white p-5">
-              <label className={labelClassName} htmlFor="business_name">BUSINESS NAME</label>
-              <input id="business_name" className={fieldClassName} {...register("business_name")} />
-              {errors.business_name && <p className="mt-1 text-sm text-rose-600">{errors.business_name.message}</p>}
+          <form
+            onSubmit={handleSubmit((v) => updateMutation.mutate(v))}
+            className="space-y-4"
+          >
+            <div className="tx-panel p-5 space-y-4">
+              <div>
+                <label className="tx-label block mb-1.5" htmlFor="business_name">
+                  Business Name
+                </label>
+                <input
+                  id="business_name"
+                  className={`tx-input${errors.business_name ? " error" : ""}`}
+                  {...register("business_name")}
+                />
+                {errors.business_name && (
+                  <p className="mt-1 text-xs" style={{ color: "var(--red)" }}>
+                    {errors.business_name.message}
+                  </p>
+                )}
+              </div>
 
-              <label className={`${labelClassName} mt-5 block`} htmlFor="category_id">CATEGORY</label>
-              <select id="category_id" className={fieldClassName} {...register("category_id")}>
-                <option value="">Select Category</option>
-                {categories.map((cat) => (
-                  <option key={cat.id} value={cat.id}>{cat.name}</option>
-                ))}
-              </select>
-              {errors.category_id && <p className="mt-1 text-sm text-rose-600">{errors.category_id.message}</p>}
+              <div>
+                <label className="tx-label block mb-1.5" htmlFor="category_id">
+                  Category
+                </label>
+                <select
+                  id="category_id"
+                  className={`tx-select${errors.category_id ? " error" : ""}`}
+                  {...register("category_id")}
+                >
+                  <option value="">Select Category</option>
+                  {categories.map((cat) => (
+                    <option key={cat.id} value={cat.id}>
+                      {cat.name}
+                    </option>
+                  ))}
+                </select>
+                {errors.category_id && (
+                  <p className="mt-1 text-xs" style={{ color: "var(--red)" }}>
+                    {errors.category_id.message}
+                  </p>
+                )}
+              </div>
 
-              <label className={`${labelClassName} mt-5 block`}>BUSINESS LOGO (optional)</label>
-              <input
-                type="file"
-                accept="image/*"
-                className="mt-2 text-sm text-slate-600"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) {
-                    setLogoPreview(URL.createObjectURL(file));
-                  }
-                }}
-              />
-              {logoPreview && (
-                <img src={logoPreview} alt="logo preview" className="mt-2 h-16 w-auto rounded object-contain" />
-              )}
+              <div>
+                <label className="tx-label block mb-1.5">
+                  Business Logo (optional)
+                </label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="text-xs"
+                  style={{ color: "var(--text2)" }}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) setLogoPreview(URL.createObjectURL(file));
+                  }}
+                />
+                {logoPreview && (
+                  <img
+                    src={logoPreview}
+                    alt="logo preview"
+                    className="mt-2 h-14 w-auto rounded object-contain"
+                  />
+                )}
+              </div>
             </div>
 
-            <div className="rounded-xl border border-slate-200 bg-white p-5">
-              <p className={`${labelClassName} mb-3 block`}>LOCATION</p>
+            <div className="tx-panel p-5">
+              <p className="tx-label block mb-3">Location</p>
               <Controller
                 control={control}
                 name="locationLat"
@@ -251,7 +308,9 @@ function BusinessDetailContent({ params }: { params: Promise<{ id: string }> }) 
                 )}
               />
               {(errors.locationLat || errors.locationLng) && (
-                <p className="mt-2 text-sm text-rose-600">Map pin is required</p>
+                <p className="mt-2 text-xs" style={{ color: "var(--red)" }}>
+                  Map pin is required
+                </p>
               )}
             </div>
 
@@ -259,23 +318,25 @@ function BusinessDetailContent({ params }: { params: Promise<{ id: string }> }) 
               <button
                 type="submit"
                 disabled={updateMutation.isPending}
-                className="inline-flex h-11 items-center justify-center rounded-lg bg-indigo-600 px-6 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-70"
+                className="tx-btn-primary"
+                style={{ height: "40px" }}
               >
-                {updateMutation.isPending ? "Saving..." : "Save Changes"}
+                {updateMutation.isPending ? "Saving…" : "Save Changes"}
               </button>
               <button
                 type="button"
                 onClick={() => setIsEditing(false)}
-                className="inline-flex h-11 items-center justify-center rounded-lg border border-slate-300 bg-white px-6 text-sm font-medium text-slate-700 hover:border-slate-400"
+                className="tx-btn-ghost"
+                style={{ height: "40px" }}
               >
                 Cancel
               </button>
             </div>
 
             {updateMutation.isError && (
-              <p className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+              <div className="tx-alert tx-alert-error">
                 {(updateMutation.error as Error).message || "Update failed. Please try again."}
-              </p>
+              </div>
             )}
           </form>
         )}

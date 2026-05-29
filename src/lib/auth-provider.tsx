@@ -57,8 +57,8 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <p className="text-slate-500">Loading...</p>
+      <div className="flex min-h-screen items-center justify-center bg-shell">
+        <p className="tx-sub-label" style={{ fontSize: "12px" }}>Loading…</p>
       </div>
     );
   }

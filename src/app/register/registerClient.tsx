@@ -11,26 +11,22 @@ import { useSessionStore } from "@/store/session-store";
 const authErrorMessages: Record<string, string> = {
   expired_token: "This link has expired. Please open TaxiMela app and request a new link.",
   invalid_token: "This link is invalid. Please retry from TaxiMela app.",
-  used_token: "This link has already been used. Please request a fresh link in TaxiMela app.",
+  used_token:    "This link has already been used. Please request a fresh link in TaxiMela app.",
 };
 
 function getAuthErrorMessage(error: unknown) {
   if (error instanceof ApiError && error.code && authErrorMessages[error.code]) {
     return authErrorMessages[error.code];
   }
-
-  if (error instanceof Error) {
-    return error.message;
-  }
-
+  if (error instanceof Error) return error.message;
   return "Unable to verify your link right now. Please try again.";
 }
 
 export default function RegisterClient() {
-  const searchParams = useSearchParams();
-  const handoffToken = searchParams.get("handoff");
-  const setSession = useSessionStore((state) => state.setSession);
-  const attemptedTokenRef = useRef<string | null>(null);
+  const searchParams   = useSearchParams();
+  const handoffToken   = searchParams.get("handoff");
+  const setSession     = useSessionStore((state) => state.setSession);
+  const attemptedRef   = useRef<string | null>(null);
 
   const exchangeMutation = useMutation({
     mutationFn: exchangeHandoffToken,
@@ -40,61 +36,54 @@ export default function RegisterClient() {
   });
 
   useEffect(() => {
-    if (!handoffToken) {
-      return;
-    }
-
-    if (attemptedTokenRef.current === handoffToken) {
-      return;
-    }
-
-    attemptedTokenRef.current = handoffToken;
+    if (!handoffToken) return;
+    if (attemptedRef.current === handoffToken) return;
+    attemptedRef.current = handoffToken;
     exchangeMutation.mutate(handoffToken);
   }, [handoffToken, exchangeMutation]);
 
   return (
-    <div className="min-h-screen bg-white px-4 py-6 font-sans sm:px-6 sm:py-10">
-      <main className="mx-auto w-full max-w-2xl rounded-xl border border-slate-200 bg-white p-5 sm:p-8">
-        <h1 className="text-2xl font-semibold text-slate-900 sm:text-3xl">Verify your TaxiMela link</h1>
+    <div className="min-h-screen bg-shell px-4 py-8 sm:px-6 sm:py-12">
+      <main className="mx-auto w-full max-w-lg tx-panel p-6 sm:p-8">
 
-        {!handoffToken ? (
-          <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-4">
-            <p className="text-sm leading-6 text-slate-600">
-              Mobile handoff is paused for now. You can continue directly to the
-              registration form.
-            </p>
-            <Link
-              href="/registration"
-              className="mt-4 inline-flex h-11 w-full items-center justify-center rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white hover:bg-indigo-700 focus:ring-2 focus:ring-indigo-100 focus:ring-offset-2 sm:w-auto"
-            >
+        {/* Brand */}
+        <p className="tx-brand mb-5">Taximela</p>
+
+        <h1 className="tx-page-title">Verify your TaxiMela link</h1>
+
+        {/* No token — fallback */}
+        {!handoffToken && (
+          <div className="mt-5 tx-alert tx-alert-info">
+            <p>Mobile handoff is paused. You can continue directly to the registration form.</p>
+            <Link href="/registration" className="tx-btn-primary mt-4 inline-flex">
               Start registration
             </Link>
           </div>
-        ) : null}
+        )}
 
-        {handoffToken && exchangeMutation.isPending ? (
-          <p className="mt-4 text-sm text-slate-600">Checking your secure link…</p>
-        ) : null}
+        {/* Pending */}
+        {handoffToken && exchangeMutation.isPending && (
+          <p className="mt-5 tx-sub-label" style={{ fontSize: "12px" }}>
+            Checking your secure link…
+          </p>
+        )}
 
-        {handoffToken && exchangeMutation.isError ? (
-          <div className="mt-4 rounded-lg border border-rose-200 bg-rose-50 p-4">
-            <p className="text-sm text-rose-700">{getAuthErrorMessage(exchangeMutation.error)}</p>
+        {/* Error */}
+        {handoffToken && exchangeMutation.isError && (
+          <div className="mt-5 tx-alert tx-alert-error">
+            {getAuthErrorMessage(exchangeMutation.error)}
           </div>
-        ) : null}
+        )}
 
-        {handoffToken && exchangeMutation.isSuccess ? (
-          <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-4">
-            <p className="text-sm text-emerald-700">
-              Verified successfully. Continue to complete your business registration.
-            </p>
-            <Link
-              href="/registration"
-              className="mt-4 inline-flex h-11 w-full items-center justify-center rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white hover:bg-indigo-700 focus:ring-2 focus:ring-indigo-100 focus:ring-offset-2 sm:w-auto"
-            >
+        {/* Success */}
+        {handoffToken && exchangeMutation.isSuccess && (
+          <div className="mt-5 tx-alert tx-alert-success">
+            <p>Verified successfully. Continue to complete your business registration.</p>
+            <Link href="/registration" className="tx-btn-primary mt-4 inline-flex">
               Continue
             </Link>
           </div>
-        ) : null}
+        )}
       </main>
     </div>
   );

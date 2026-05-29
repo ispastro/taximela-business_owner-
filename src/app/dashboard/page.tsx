@@ -6,11 +6,25 @@ import { getDashboardSummary, getMyBusinesses } from "@/features/registration/ap
 import { useSessionStore } from "@/store/session-store";
 import { ProtectedRoute } from "@/lib/auth-provider";
 
-function StatCard({ label, value, className }: { label: string; value: number; className: string }) {
+type MetricCardProps = {
+  label: string;
+  value: number;
+  accent: "green" | "amber" | "red" | "neutral";
+};
+
+const accentMap: Record<MetricCardProps["accent"], { value: string; label: string }> = {
+  green:   { value: "text-accent",  label: "text-accent"  },
+  amber:   { value: "text-amber",   label: "text-amber"   },
+  red:     { value: "text-red",     label: "text-red"     },
+  neutral: { value: "text-text",    label: "text-text2"   },
+};
+
+function MetricCard({ label, value, accent }: MetricCardProps) {
+  const colors = accentMap[accent];
   return (
-    <div className={`rounded-xl border p-5 ${className}`}>
-      <p className="text-sm font-medium">{label}</p>
-      <p className="mt-1 text-3xl font-bold">{value}</p>
+    <div className="tx-panel p-4">
+      <p className={`tx-section-header mb-2 ${colors.label}`}>{label}</p>
+      <p className={`tx-metric ${colors.value}`}>{value}</p>
     </div>
   );
 }
@@ -39,66 +53,53 @@ function DashboardContent() {
   });
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-6 sm:px-6 sm:py-10">
+    <div className="min-h-screen bg-shell px-4 py-6 sm:px-6 sm:py-10">
       <main className="mx-auto w-full max-w-5xl">
-        <div className="flex items-center justify-between">
+
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">Dashboard</h1>
-            <p className="mt-1 text-sm text-slate-500">Overview of your TaxiMela business registrations</p>
+            <p className="tx-section-header mb-1">Overview</p>
+            <h1 className="tx-page-title">Dashboard</h1>
           </div>
-          <Link
-            href="/registration"
-            className="inline-flex h-10 items-center justify-center rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white hover:bg-indigo-700"
-          >
+          <Link href="/registration" className="tx-btn-primary">
             + New Registration
           </Link>
         </div>
 
-        {/* Summary Stats */}
-        <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
+        {/* Metric cards */}
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {summaryLoading ? (
             Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="h-24 animate-pulse rounded-xl border border-slate-200 bg-slate-100" />
+              <div key={i} className="tx-skeleton h-24" />
             ))
           ) : (
             <>
-              <StatCard
-                label="Total Applications"
-                value={summary?.total_count ?? 0}
-                className="border-slate-200 bg-white text-slate-700"
-              />
-              <StatCard
-                label="Pending"
-                value={summary?.pending_application ?? 0}
-                className="border-amber-200 bg-amber-50 text-amber-700"
-              />
-              <StatCard
-                label="Approved"
-                value={summary?.accepted ?? 0}
-                className="border-emerald-200 bg-emerald-50 text-emerald-700"
-              />
-              <StatCard
-                label="Rejected"
-                value={summary?.rejected ?? 0}
-                className="border-rose-200 bg-rose-50 text-rose-700"
-              />
+              <MetricCard label="Total"    value={summary?.total_count        ?? 0} accent="neutral" />
+              <MetricCard label="Pending"  value={summary?.pending_application ?? 0} accent="amber"   />
+              <MetricCard label="Approved" value={summary?.accepted            ?? 0} accent="green"   />
+              <MetricCard label="Rejected" value={summary?.rejected            ?? 0} accent="red"     />
             </>
           )}
         </div>
 
-        {/* Businesses List */}
+        {/* Businesses list */}
         <div className="mt-8">
-          <h2 className="text-lg font-semibold text-slate-900">My Businesses</h2>
+          <p className="tx-section-header mb-3">My Businesses</p>
 
-          <div className="mt-4 space-y-3">
+          <div className="space-y-2">
             {businessesLoading ? (
               Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="h-20 animate-pulse rounded-xl border border-slate-200 bg-slate-100" />
+                <div key={i} className="tx-skeleton h-16" />
               ))
             ) : businesses?.data.length === 0 ? (
-              <div className="rounded-xl border border-slate-200 bg-white p-6 text-center">
-                <p className="text-sm text-slate-500">No approved businesses yet.</p>
-                <Link href="/status" className="mt-2 inline-block text-sm font-medium text-indigo-600 hover:underline">
+              <div className="tx-panel p-6 text-center">
+                <p className="tx-sub-label" style={{ fontSize: "12px" }}>No approved businesses yet.</p>
+                <Link
+                  href="/status"
+                  className="mt-2 inline-block tx-sub-label hover:text-accent transition-colors"
+                  style={{ fontSize: "12px" }}
+                >
                   Check application status →
                 </Link>
               </div>
@@ -107,21 +108,23 @@ function DashboardContent() {
                 <Link
                   key={business.id}
                   href={`/businesses/${business.id}`}
-                  className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-5 transition hover:border-indigo-300 hover:shadow-sm"
+                  className="tx-panel flex items-center justify-between p-4 hover:border-accent transition-colors"
                 >
                   <div>
-                    <p className="font-semibold text-slate-900">{business.name}</p>
-                    <p className="mt-0.5 text-sm text-slate-500">{business.category_name ?? "—"}</p>
+                    <p className="tx-row-name">{business.name}</p>
+                    <p className="tx-sub-label mt-0.5">{business.category_name ?? "—"}</p>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className={`rounded-full border px-3 py-1 text-xs font-medium ${
-                      business.status === "active"
-                        ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                        : "border-rose-200 bg-rose-50 text-rose-700"
-                    }`}>
+                    <span
+                      className={
+                        business.status === "active"
+                          ? "tx-badge tx-badge-green"
+                          : "tx-badge tx-badge-red"
+                      }
+                    >
                       {business.status === "active" ? "Active" : "Suspended"}
                     </span>
-                    <span className="text-slate-400">→</span>
+                    <span className="text-text3 text-xs">→</span>
                   </div>
                 </Link>
               ))
@@ -129,12 +132,20 @@ function DashboardContent() {
           </div>
         </div>
 
-        {/* Quick Links */}
-        <div className="mt-8 flex gap-4 border-t border-slate-200 pt-6">
-          <Link href="/status" className="text-sm font-medium text-indigo-600 underline-offset-4 hover:underline">
+        {/* Footer nav */}
+        <div className="mt-8 flex gap-5 border-t border-panel-border pt-5">
+          <Link
+            href="/status"
+            className="tx-sub-label hover:text-accent transition-colors"
+            style={{ fontSize: "12px" }}
+          >
             View applications
           </Link>
-          <Link href="/register" className="text-sm font-medium text-slate-500 underline-offset-4 hover:underline">
+          <Link
+            href="/register"
+            className="tx-sub-label hover:text-text transition-colors"
+            style={{ fontSize: "12px" }}
+          >
             Back to register
           </Link>
         </div>

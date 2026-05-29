@@ -6,19 +6,10 @@ import { getMyApplications } from "@/features/registration/api/registration";
 import { useSessionStore } from "@/store/session-store";
 import { ProtectedRoute } from "@/lib/auth-provider";
 
-const statusStyles: Record<string, { label: string; className: string }> = {
-  pending_review: {
-    label: "Pending Review",
-    className: "border-amber-200 bg-amber-50 text-amber-700",
-  },
-  approved: {
-    label: "Approved",
-    className: "border-emerald-200 bg-emerald-50 text-emerald-700",
-  },
-  rejected: {
-    label: "Rejected",
-    className: "border-rose-200 bg-rose-50 text-rose-700",
-  },
+const statusConfig: Record<string, { label: string; badgeClass: string }> = {
+  pending_review: { label: "Pending Review", badgeClass: "tx-badge tx-badge-amber" },
+  approved:       { label: "Approved",        badgeClass: "tx-badge tx-badge-green" },
+  rejected:       { label: "Rejected",        badgeClass: "tx-badge tx-badge-red"   },
 };
 
 export default function StatusPage() {
@@ -39,49 +30,54 @@ function StatusContent() {
   });
 
   return (
-    <div className="min-h-screen bg-white px-4 py-6 font-sans sm:px-6 sm:py-10">
+    <div className="min-h-screen bg-shell px-4 py-6 sm:px-6 sm:py-10">
       <main className="mx-auto w-full max-w-2xl">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold text-slate-900 sm:text-3xl">My Applications</h1>
-          <Link
-            href="/registration"
-            className="inline-flex h-10 items-center justify-center rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white hover:bg-indigo-700"
-          >
-            + New Registration
+
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <p className="tx-section-header mb-1">Applications</p>
+            <h1 className="tx-page-title">My Applications</h1>
+          </div>
+          <Link href="/registration" className="tx-btn-primary">
+            + New
           </Link>
         </div>
 
-        <div className="mt-6 space-y-4">
+        {/* List */}
+        <div className="space-y-3">
           {isLoading ? (
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-500">
-              Loading your applications...
-            </div>
+            Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="tx-skeleton h-16" />
+            ))
           ) : isError ? (
-            <div className="rounded-xl border border-rose-200 bg-rose-50 p-6 text-center text-sm text-rose-700">
+            <div className="tx-alert tx-alert-error">
               Failed to load applications. Please try again.
             </div>
           ) : data?.data.length === 0 ? (
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-6 text-center">
-              <p className="text-sm text-slate-500">No applications yet.</p>
-              <Link href="/registration" className="mt-3 inline-block text-sm font-medium text-indigo-600 hover:underline">
+            <div className="tx-panel p-8 text-center">
+              <p className="tx-sub-label" style={{ fontSize: "12px" }}>No applications yet.</p>
+              <Link
+                href="/registration"
+                className="mt-3 inline-block tx-sub-label hover:text-accent transition-colors"
+                style={{ fontSize: "12px" }}
+              >
                 Start your first registration →
               </Link>
             </div>
           ) : (
             data?.data.map((app) => {
-              const style = statusStyles[app.status] ?? statusStyles.pending_review;
+              const cfg = statusConfig[app.status] ?? statusConfig.pending_review;
               return (
-                <div key={app.id} className="rounded-xl border border-slate-200 bg-white p-5">
+                <div key={app.id} className="tx-panel p-4">
                   <div className="flex items-start justify-between gap-4">
                     <div>
-                      <p className="font-semibold text-slate-900">{app.business_name}</p>
-                      {app.rejection_reason ? (
-                        <p className="mt-1 text-sm text-slate-500">Note: {app.rejection_reason}</p>
-                      ) : null}
+                      <p className="tx-row-name">{app.business_name}</p>
+                      {app.rejection_reason && (
+                        <p className="mt-1 tx-sub-label">Note: {app.rejection_reason}</p>
+                      )}
                     </div>
-                    <span className={`shrink-0 rounded-full border px-3 py-1 text-xs font-medium ${style.className}`}>
-                      {style.label}
-                    </span>
+                    <span className={cfg.badgeClass}>{cfg.label}</span>
                   </div>
                 </div>
               );
@@ -89,8 +85,13 @@ function StatusContent() {
           )}
         </div>
 
+        {/* Footer nav */}
         <div className="mt-6">
-          <Link href="/register" className="text-sm font-medium text-slate-500 underline-offset-4 hover:underline">
+          <Link
+            href="/register"
+            className="tx-sub-label hover:text-accent transition-colors"
+            style={{ fontSize: "12px" }}
+          >
             ← Back to register
           </Link>
         </div>
