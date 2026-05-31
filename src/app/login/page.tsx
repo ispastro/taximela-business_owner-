@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { signInWithEmail, signUpWithEmail } from "@/lib/firebase";
+import { ThemeToggle } from "@/features/owner/components/theme-toggle";
+import { resolvePostAuthDestinationFromToken } from "@/lib/owner-account";
 import { useSessionStore } from "@/store/session-store";
 import { apiRequest } from "@/lib/api-client";
 
@@ -49,11 +51,11 @@ export default function LoginPage() {
           if (err.status !== 409 && err.status !== 400) throw apiError;
         }
         setSession({ ownerId: result.uid, accessToken: result.token });
-        router.push("/dashboard");
+        router.push(await resolvePostAuthDestinationFromToken(result.token));
       } else {
         const result = await signInWithEmail(email, password);
         setSession({ ownerId: result.uid, accessToken: result.token });
-        router.push("/dashboard");
+        router.push(await resolvePostAuthDestinationFromToken(result.token));
       }
     } catch (err: unknown) {
       const e = err as { code?: string; message?: string };
@@ -100,15 +102,19 @@ export default function LoginPage() {
   return (
     <div
       style={{
-        display:        "flex",
-        flexDirection:  "column",
-        alignItems:     "center",
-        justifyContent: "center",
-        minHeight:      "100vh",
-        background:     "var(--bg)",   /* page bg */
-        padding:        "16px",
+        position:     "relative",
+        display:      "flex",
+        flexDirection:"column",
+        alignItems:   "center",
+        justifyContent:"center",
+        minHeight:    "100vh",
+        background:   "var(--bg)",
+        padding:      "16px",
       }}
     >
+      <div style={{ position: "absolute", top: "16px", right: "16px" }}>
+        <ThemeToggle />
+      </div>
       {/* ── Brand ── */}
       <div style={{ marginBottom: "40px", textAlign: "center" }}>
         <h1

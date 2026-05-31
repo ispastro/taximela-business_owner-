@@ -1,16 +1,19 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useMemo, useRef, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { z } from "zod";
-import { uploadToCloudinary } from "@/lib/cloudinary";
+import { OwnerAppShell } from "@/features/owner/components/owner-app-shell";
+import { OwnerPageHeader } from "@/features/owner/components/owner-page-header";
 import { getBusinessCategories, submitBusinessRegistration } from "@/features/registration/api/registration";
-import { useSessionStore } from "@/store/session-store";
+import { OWNER_ACCOUNT_QUERY_KEY } from "@/features/owner/hooks/use-owner-account";
+import { uploadToCloudinary } from "@/lib/cloudinary";
 import { ProtectedRoute } from "@/lib/auth-provider";
+import { useSessionStore } from "@/store/session-store";
 
 const LocationPickerMap = dynamic(
   () =>
@@ -49,11 +52,12 @@ function SectionTitle({
   return (
     <div className="mb-5 flex items-start gap-3">
       <span
-        className="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-xs font-bold"
+        className="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center text-xs font-bold"
         style={{
           background: "var(--accent-dim)",
           color: "var(--accent)",
           border: "1px solid color-mix(in srgb, var(--accent) 30%, transparent)",
+          borderRadius: 0,
         }}
       >
         {number}
@@ -89,7 +93,7 @@ function FileInput({
         className={`tx-dropzone${error ? " error" : ""}`}
       >
         {previewUrl ? (
-          <img src={previewUrl} alt="preview" className="h-20 w-auto rounded object-contain" />
+          <img src={previewUrl} alt="preview" className="h-20 w-auto object-contain" />
         ) : (
           <>
             <span className="text-xl mb-1" style={{ color: "var(--text3)" }}>↑</span>
@@ -122,6 +126,7 @@ export default function RegistrationPage() {
 
 function RegistrationForm() {
   const router       = useRouter();
+  const queryClient  = useQueryClient();
   const accessToken  = useSessionStore((s) => s.accessToken);
   const [govIdPreview,    setGovIdPreview]    = useState<string | null>(null);
   const [licensePreview,  setLicensePreview]  = useState<string | null>(null);
@@ -175,35 +180,24 @@ function RegistrationForm() {
         accessToken ?? "",
       );
     },
-    onSuccess: () => router.push("/status"),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: OWNER_ACCOUNT_QUERY_KEY });
+      router.push("/status");
+    },
   });
 
   return (
-    <div className="min-h-screen bg-shell">
-      <main className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-10">
+    <OwnerAppShell width="wide">
+      <OwnerPageHeader
+        eyebrow="Onboarding"
+        title="New Business Application"
+        description="Complete all sections below to submit your business for admin review."
+        backHref="/status"
+        backLabel="Application history"
+      />
 
-        {/* Page header */}
-        <header className="flex items-start gap-4 pb-6 mb-6"
-          style={{ borderBottom: "1px solid var(--panel-border)" }}>
-          <div
-            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-lg"
-            style={{ background: "var(--accent-dim)", color: "var(--accent)" }}
-          >
-            ◈
-          </div>
-          <div>
-            <p className="tx-section-header mb-1">Onboarding</p>
-            <h1 className="tx-page-title">Business Owner Registration</h1>
-            <p className="tx-sub-label mt-1" style={{ fontSize: "12px" }}>
-              Register as a business owner to get started with TaxiMela
-            </p>
-          </div>
-        </header>
-
-        <form
-          onSubmit={handleSubmit((values) => submitMutation.mutate(values))}
-        >
-          <div className="grid gap-6 lg:grid-cols-2 lg:gap-10">
+      <form onSubmit={handleSubmit((values) => submitMutation.mutate(values))}>
+        <div className="grid gap-6 lg:grid-cols-2 lg:gap-10">
 
             {/* ── Left column ── */}
             <section className="space-y-0">
@@ -359,17 +353,17 @@ function RegistrationForm() {
           </div>
 
           {/* Submit bar */}
-          <div
-            className="sticky bottom-0 mt-8 py-4 sm:static sm:py-0 sm:mt-8"
-            style={{ borderTop: "1px solid var(--panel-border)", background: "var(--shell)" }}
-          >
+          <div className="tx-panel mt-8 flex flex-col items-start gap-4 p-5">
+            <p className="tx-sub-label" style={{ fontSize: "12px" }}>
+              All fields are required unless marked optional.
+            </p>
             <button
               type="submit"
               disabled={submitMutation.isPending}
               className="tx-btn-primary w-full sm:w-auto"
               style={{ height: "44px", minWidth: "220px", fontSize: "13px" }}
             >
-              {submitMutation.isPending ? "Submitting…" : "Complete Registration"}
+              {submitMutation.isPending ? "Submitting…" : "Submit Application"}
             </button>
           </div>
 
@@ -378,13 +372,7 @@ function RegistrationForm() {
               {(submitMutation.error as Error).message || "Submission failed. Please try again."}
             </div>
           )}
-          {submitMutation.isSuccess && (
-            <div className="mt-4 tx-alert tx-alert-success">
-              Registration submitted successfully.
-            </div>
-          )}
         </form>
-      </main>
-    </div>
+    </OwnerAppShell>
   );
 }

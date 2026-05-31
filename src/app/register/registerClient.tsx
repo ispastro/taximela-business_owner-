@@ -1,10 +1,12 @@
 "use client";
 
 import { useMutation } from "@tanstack/react-query";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { ThemeToggle } from "@/features/owner/components/theme-toggle";
 import { exchangeHandoffToken } from "@/features/auth/api/exchange-handoff";
+import { resolvePostAuthDestinationFromToken } from "@/lib/owner-account";
 import { ApiError } from "@/lib/api-client";
 import { useSessionStore } from "@/store/session-store";
 
@@ -23,15 +25,27 @@ function getAuthErrorMessage(error: unknown) {
 }
 
 export default function RegisterClient() {
-  const searchParams   = useSearchParams();
-  const handoffToken   = searchParams.get("handoff");
-  const setSession     = useSessionStore((state) => state.setSession);
-  const attemptedRef   = useRef<string | null>(null);
+  const router       = useRouter();
+  const searchParams = useSearchParams();
+  const handoffToken = searchParams.get("handoff");
+  const setSession   = useSessionStore((state) => state.setSession);
+  const attemptedRef = useRef<string | null>(null);
+  const [statusText, setStatusText] = useState("Verifying your link…");
 
   const exchangeMutation = useMutation({
     mutationFn: exchangeHandoffToken,
-    onSuccess: (result) => {
+    onSuccess: async (result) => {
+      // 1. Store session
       setSession({ ownerId: result.ownerId, accessToken: result.accessToken });
+
+      // 2. Check submission history to decide where to send the owner
+      setStatusText("Checking your account…");
+      const destination = await resolvePostAuthDestinationFromToken(
+        result.accessToken,
+      ).catch(() => "/registration");
+
+      // 3. Route
+      router.push(destination);
     },
   });
 
@@ -42,49 +56,108 @@ export default function RegisterClient() {
     exchangeMutation.mutate(handoffToken);
   }, [handoffToken, exchangeMutation]);
 
+  /* ── No token in URL ── */
+  if (!handoffToken) {
+    return (
+      <div style={pageStyle}>
+        <div style={{ position: "absolute", top: "16px", right: "16px" }}>
+          <ThemeToggle />
+        </div>
+        <div style={{ textAlign: "center" }}>
+          <p style={{ fontFamily: "var(--font-sans)", fontSize: "12px", color: "var(--text2)", marginBottom: "16px" }}>
+            No handoff token found. Please use the link from the TaxiMela app.
+          </p>
+          <a href="/login" style={linkStyle}>Go to login →</a>
+        </div>
+      </div>
+    );
+  }
+
+  /* ── Token present — show exchange / routing state ── */
   return (
-    <div className="min-h-screen bg-shell px-4 py-8 sm:px-6 sm:py-12">
-      <main className="mx-auto w-full max-w-lg tx-panel p-6 sm:p-8">
+    <div style={pageStyle}>
+      <div style={{ position: "absolute", top: "16px", right: "16px" }}>
+        <ThemeToggle />
+      </div>
+      <div style={{ width: "100%", maxWidth: "360px", textAlign: "center" }}>
 
         {/* Brand */}
-        <p className="tx-brand mb-5">Taximela</p>
+        <h1 style={brandStyle}>
+          Taximela<span style={{ color: "var(--accent)" }}>.</span>
+        </h1>
 
-        <h1 className="tx-page-title">Verify your TaxiMela link</h1>
-
-        {/* No token — fallback */}
-        {!handoffToken && (
-          <div className="mt-5 tx-alert tx-alert-info">
-            <p>Mobile handoff is paused. You can continue directly to the registration form.</p>
-            <Link href="/registration" className="tx-btn-primary mt-4 inline-flex">
-              Start registration
-            </Link>
+        {/* Pending / checking */}
+        {(exchangeMutation.isPending || exchangeMutation.isSuccess) && (
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "12px" }}>
+            {/* Spinner */}
+            <div style={{
+              width:        "20px",
+              height:       "20px",
+              border:       "2px solid var(--border2)",
+              borderTop:    "2px solid var(--accent)",
+              borderRadius: "50%",
+              animation:    "tx-spin 0.8s linear infinite",
+            }} />
+            <p style={{ fontFamily: "var(--font-sans)", fontSize: "13px", color: "var(--text2)" }}>
+              {statusText}
+            </p>
           </div>
-        )}
-
-        {/* Pending */}
-        {handoffToken && exchangeMutation.isPending && (
-          <p className="mt-5 tx-sub-label" style={{ fontSize: "12px" }}>
-            Checking your secure link…
-          </p>
         )}
 
         {/* Error */}
-        {handoffToken && exchangeMutation.isError && (
-          <div className="mt-5 tx-alert tx-alert-error">
-            {getAuthErrorMessage(exchangeMutation.error)}
-          </div>
+        {exchangeMutation.isError && (
+          <>
+            <div style={errorBoxStyle}>
+              {getAuthErrorMessage(exchangeMutation.error)}
+            </div>
+            <a href="/login" style={{ ...linkStyle, marginTop: "12px", display: "inline-block" }}>
+              Go to login →
+            </a>
+          </>
         )}
+      </div>
 
-        {/* Success */}
-        {handoffToken && exchangeMutation.isSuccess && (
-          <div className="mt-5 tx-alert tx-alert-success">
-            <p>Verified successfully. Continue to complete your business registration.</p>
-            <Link href="/registration" className="tx-btn-primary mt-4 inline-flex">
-              Continue
-            </Link>
-          </div>
-        )}
-      </main>
+      {/* Spinner keyframe */}
+      <style>{`@keyframes tx-spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }
+
+/* ── Shared styles ── */
+const pageStyle: React.CSSProperties = {
+  position:       "relative",
+  display:        "flex",
+  minHeight:      "100vh",
+  alignItems:     "center",
+  justifyContent: "center",
+  background:     "var(--bg)",
+  padding:        "16px",
+};
+
+const brandStyle: React.CSSProperties = {
+  fontFamily:    "var(--font-sans)",
+  fontWeight:    700,
+  fontSize:      "22px",
+  color:         "var(--text)",
+  letterSpacing: "-0.02em",
+  marginBottom:  "32px",
+};
+
+const errorBoxStyle: React.CSSProperties = {
+  background:   "var(--red-dim)",
+  border:       "1px solid color-mix(in srgb, var(--red) 30%, transparent)",
+  borderRadius: "0",
+  padding:      "14px 16px",
+  fontFamily:   "var(--font-sans)",
+  fontSize:     "12.5px",
+  color:        "var(--red)",
+  textAlign:    "left",
+  marginBottom: "16px",
+};
+
+const linkStyle: React.CSSProperties = {
+  fontFamily:     "var(--font-sans)",
+  fontSize:       "12px",
+  color:          "var(--text3)",
+  textDecoration: "none",
+};

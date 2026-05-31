@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { DM_Sans, Space_Mono } from "next/font/google";
 import "./globals.css";
+import { ThemeInitScript } from "@/features/owner/components/theme-init-script";
 import { AppProviders } from "@/providers/app-providers";
 
 const dmSans = DM_Sans({
@@ -18,8 +19,8 @@ const spaceMono = Space_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "TaxiMela Owner Registration",
-  description: "Business owner onboarding for TaxiMela",
+  title: "TaxiMela — Business Owner Portal",
+  description: "Register, track, and manage your business on TaxiMela",
 };
 
 export default function RootLayout({
@@ -28,7 +29,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <ThemeInitScript />
+      </head>
       <body
         className={`${dmSans.variable} ${spaceMono.variable} antialiased`}
       >

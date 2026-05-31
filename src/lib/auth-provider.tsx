@@ -4,6 +4,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import { useRouter } from "next/navigation";
 import { createContext, useContext, useEffect, useState } from "react";
 import { auth } from "./firebase";
+import { OwnerLoadingScreen } from "@/features/owner/components/owner-loading-screen";
 import { useSessionStore } from "@/store/session-store";
 
 type AuthContextType = {
@@ -56,11 +57,7 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
   }, [isLoading, isAuthenticated, router]);
 
   if (isLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-shell">
-        <p className="tx-sub-label" style={{ fontSize: "12px" }}>Loading…</p>
-      </div>
-    );
+    return <OwnerLoadingScreen />;
   }
 
   if (!isAuthenticated) {

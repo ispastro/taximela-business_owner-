@@ -2,9 +2,13 @@
 
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
+import { OwnerAppShell } from "@/features/owner/components/owner-app-shell";
+import { OwnerPageHeader } from "@/features/owner/components/owner-page-header";
+import { OwnerSection } from "@/features/owner/components/owner-section";
+import { RequiresApprovedBusiness } from "@/features/owner/components/requires-approved-business";
 import { getDashboardSummary, getMyBusinesses } from "@/features/registration/api/registration";
-import { useSessionStore } from "@/store/session-store";
 import { ProtectedRoute } from "@/lib/auth-provider";
+import { useSessionStore } from "@/store/session-store";
 
 type MetricCardProps = {
   label: string;
@@ -12,19 +16,25 @@ type MetricCardProps = {
   accent: "green" | "amber" | "red" | "neutral";
 };
 
-const accentMap: Record<MetricCardProps["accent"], { value: string; label: string }> = {
-  green:   { value: "text-accent",  label: "text-accent"  },
-  amber:   { value: "text-amber",   label: "text-amber"   },
-  red:     { value: "text-red",     label: "text-red"     },
-  neutral: { value: "text-text",    label: "text-text2"   },
+const accentClass: Record<MetricCardProps["accent"], string> = {
+  green:   "tx-metric-card-accent-green",
+  amber:   "tx-metric-card-accent-amber",
+  red:     "tx-metric-card-accent-red",
+  neutral: "tx-metric-card-accent-neutral",
+};
+
+const valueClass: Record<MetricCardProps["accent"], string> = {
+  green:   "text-accent",
+  amber:   "text-amber",
+  red:     "text-red",
+  neutral: "text-text",
 };
 
 function MetricCard({ label, value, accent }: MetricCardProps) {
-  const colors = accentMap[accent];
   return (
-    <div className="tx-panel p-4">
-      <p className={`tx-section-header mb-2 ${colors.label}`}>{label}</p>
-      <p className={`tx-metric ${colors.value}`}>{value}</p>
+    <div className={`tx-metric-card ${accentClass[accent]}`}>
+      <p className="tx-section-header">{label}</p>
+      <p className={`tx-metric ${valueClass[accent]}`}>{value}</p>
     </div>
   );
 }
@@ -32,7 +42,9 @@ function MetricCard({ label, value, accent }: MetricCardProps) {
 export default function DashboardPage() {
   return (
     <ProtectedRoute>
-      <DashboardContent />
+      <RequiresApprovedBusiness>
+        <DashboardContent />
+      </RequiresApprovedBusiness>
     </ProtectedRoute>
   );
 }
@@ -52,104 +64,92 @@ function DashboardContent() {
     enabled: !!accessToken,
   });
 
+  const businessList = businesses?.data ?? [];
+
   return (
-    <div className="min-h-screen bg-shell px-4 py-6 sm:px-6 sm:py-10">
-      <main className="mx-auto w-full max-w-5xl">
-
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <p className="tx-section-header mb-1">Overview</p>
-            <h1 className="tx-page-title">Dashboard</h1>
-          </div>
-          <Link href="/registration" className="tx-btn-primary">
-            + New Registration
+    <OwnerAppShell width="default">
+      <OwnerPageHeader
+        divider
+        eyebrow="Overview"
+        title="Dashboard"
+        description="Track your applications and manage approved businesses."
+        actions={
+          <Link href="/status" className="tx-btn-ghost">
+            View application history
           </Link>
-        </div>
+        }
+      />
 
-        {/* Metric cards */}
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <section className="tx-dashboard-block" aria-label="Application summary">
+        <p className="tx-section-header tx-dashboard-block-label">
+          Application Summary
+        </p>
+        <div className="tx-stats-grid">
           {summaryLoading ? (
             Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="tx-skeleton h-24" />
+              <div key={i} className="tx-skeleton tx-skeleton-metric" />
             ))
           ) : (
             <>
-              <MetricCard label="Total"    value={summary?.total_count        ?? 0} accent="neutral" />
-              <MetricCard label="Pending"  value={summary?.pending_application ?? 0} accent="amber"   />
-              <MetricCard label="Approved" value={summary?.accepted            ?? 0} accent="green"   />
-              <MetricCard label="Rejected" value={summary?.rejected            ?? 0} accent="red"     />
+              <MetricCard label="Total Applications" value={summary?.total_count         ?? 0} accent="neutral" />
+              <MetricCard label="Pending Review"     value={summary?.pending_application ?? 0} accent="amber"   />
+              <MetricCard label="Approved"           value={summary?.accepted             ?? 0} accent="green"   />
+              <MetricCard label="Rejected"           value={summary?.rejected             ?? 0} accent="red"     />
             </>
           )}
         </div>
+      </section>
 
-        {/* Businesses list */}
-        <div className="mt-8">
-          <p className="tx-section-header mb-3">My Businesses</p>
-
-          <div className="space-y-2">
-            {businessesLoading ? (
-              Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="tx-skeleton h-16" />
-              ))
-            ) : businesses?.data.length === 0 ? (
-              <div className="tx-panel p-6 text-center">
-                <p className="tx-sub-label" style={{ fontSize: "12px" }}>No approved businesses yet.</p>
-                <Link
-                  href="/status"
-                  className="mt-2 inline-block tx-sub-label hover:text-accent transition-colors"
-                  style={{ fontSize: "12px" }}
-                >
-                  Check application status →
-                </Link>
-              </div>
-            ) : (
-              businesses?.data.map((business) => (
-                <Link
-                  key={business.id}
-                  href={`/businesses/${business.id}`}
-                  className="tx-panel flex items-center justify-between p-4 hover:border-accent transition-colors"
-                >
-                  <div>
-                    <p className="tx-row-name">{business.name}</p>
-                    <p className="tx-sub-label mt-0.5">{business.category_name ?? "—"}</p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span
-                      className={
-                        business.status === "active"
-                          ? "tx-badge tx-badge-green"
-                          : "tx-badge tx-badge-red"
-                      }
-                    >
-                      {business.status === "active" ? "Active" : "Suspended"}
-                    </span>
-                    <span className="text-text3 text-xs">→</span>
-                  </div>
-                </Link>
-              ))
-            )}
+      <OwnerSection
+        title="My Businesses"
+        description="Select a business to view details or make updates."
+      >
+        {businessesLoading ? (
+          <div className="space-y-3">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="tx-skeleton tx-skeleton-row" />
+            ))}
           </div>
-        </div>
-
-        {/* Footer nav */}
-        <div className="mt-8 flex gap-5 border-t border-panel-border pt-5">
-          <Link
-            href="/status"
-            className="tx-sub-label hover:text-accent transition-colors"
-            style={{ fontSize: "12px" }}
-          >
-            View applications
-          </Link>
-          <Link
-            href="/register"
-            className="tx-sub-label hover:text-text transition-colors"
-            style={{ fontSize: "12px" }}
-          >
-            Back to register
-          </Link>
-        </div>
-      </main>
-    </div>
+        ) : businessList.length === 0 ? (
+          <div className="tx-panel tx-empty-state">
+            <p className="tx-sub-label" style={{ fontSize: "12px" }}>
+              No approved businesses yet.
+            </p>
+            <Link href="/status" className="tx-link mt-4 inline-block">
+              Check application history →
+            </Link>
+          </div>
+        ) : (
+          <div className="tx-list-panel">
+            {businessList.map((business) => (
+              <Link
+                key={business.id}
+                href={`/businesses/${business.id}`}
+                className="tx-list-row"
+              >
+                <div className="tx-list-row-main">
+                  <p className="tx-row-name truncate">{business.name}</p>
+                  <p className="tx-sub-label truncate">
+                    {business.category_name ?? "Uncategorized"}
+                  </p>
+                </div>
+                <div className="tx-list-row-meta">
+                  <span
+                    className={
+                      business.status === "active"
+                        ? "tx-badge tx-badge-green"
+                        : "tx-badge tx-badge-red"
+                    }
+                  >
+                    {business.status === "active" ? "Active" : "Suspended"}
+                  </span>
+                  <span className="tx-row-link-chevron" aria-hidden="true">→</span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
+      </OwnerSection>
+    </OwnerAppShell>
   );
 }

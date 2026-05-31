@@ -1,10 +1,14 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
-import { getMyApplications } from "@/features/registration/api/registration";
-import { useSessionStore } from "@/store/session-store";
+import { useRouter } from "next/navigation";
+import { useEffect, useRef } from "react";
+import { OwnerAppShell } from "@/features/owner/components/owner-app-shell";
+import { OwnerPageHeader } from "@/features/owner/components/owner-page-header";
+import { OwnerSection } from "@/features/owner/components/owner-section";
+import { useOwnerAccount } from "@/features/owner/hooks/use-owner-account";
 import { ProtectedRoute } from "@/lib/auth-provider";
+import { hasPendingApplications } from "@/lib/owner-account";
 
 const statusConfig: Record<string, { label: string; badgeClass: string }> = {
   pending_review: { label: "Pending Review", badgeClass: "tx-badge tx-badge-amber" },
@@ -21,81 +25,130 @@ export default function StatusPage() {
 }
 
 function StatusContent() {
-  const accessToken = useSessionStore((s) => s.accessToken);
+  const router = useRouter();
+  const { data, isLoading, isError } = useOwnerAccount({ pollWhilePending: true });
+  const hadPendingRef = useRef(false);
 
-  const { data, isLoading, isError } = useQuery({
-    queryKey: ["my-applications"],
-    queryFn: () => getMyApplications(accessToken ?? ""),
-    enabled: !!accessToken,
-  });
+  const applications = data?.applications ?? [];
+  const hasBusinesses = (data?.businesses.length ?? 0) > 0;
+  const hasHistory = applications.length > 0;
+  const isPending = data ? hasPendingApplications(data) : false;
+
+  useEffect(() => {
+    if (!data) return;
+
+    if (hasPendingApplications(data)) {
+      hadPendingRef.current = true;
+      return;
+    }
+
+    if (hadPendingRef.current && data.businesses.length > 0) {
+      router.replace("/dashboard");
+    }
+  }, [data, router]);
+
+  const description = isPending
+    ? "Waiting for admin review — this page refreshes automatically."
+    : hasHistory
+      ? "Your previous business registration submissions."
+      : "Submit your first business registration to get started.";
 
   return (
-    <div className="min-h-screen bg-shell px-4 py-6 sm:px-6 sm:py-10">
-      <main className="mx-auto w-full max-w-2xl">
+    <OwnerAppShell width="narrow">
+      <OwnerPageHeader
+        divider
+        eyebrow="Applications"
+        title="Application History"
+        description={description}
+        actions={
+          hasBusinesses ? (
+            <Link href="/dashboard" className="tx-btn-ghost">
+              Open dashboard
+            </Link>
+          ) : undefined
+        }
+      />
 
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <p className="tx-section-header mb-1">Applications</p>
-            <h1 className="tx-page-title">My Applications</h1>
-          </div>
-          <Link href="/registration" className="tx-btn-primary">
-            + New
+      {hasBusinesses && !isPending && (
+        <div className="tx-alert tx-alert-success tx-dashboard-block">
+          You have an approved business.{" "}
+          <Link href="/dashboard" className="font-semibold underline">
+            Manage it in your dashboard →
           </Link>
         </div>
+      )}
 
-        {/* List */}
-        <div className="space-y-3">
-          {isLoading ? (
-            Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="tx-skeleton h-16" />
-            ))
-          ) : isError ? (
-            <div className="tx-alert tx-alert-error">
-              Failed to load applications. Please try again.
-            </div>
-          ) : data?.data.length === 0 ? (
-            <div className="tx-panel p-8 text-center">
-              <p className="tx-sub-label" style={{ fontSize: "12px" }}>No applications yet.</p>
-              <Link
-                href="/registration"
-                className="mt-3 inline-block tx-sub-label hover:text-accent transition-colors"
-                style={{ fontSize: "12px" }}
-              >
-                Start your first registration →
-              </Link>
-            </div>
-          ) : (
-            data?.data.map((app) => {
+      <OwnerSection
+        title="Your Submissions"
+        description={
+          hasHistory
+            ? `${applications.length} application${applications.length === 1 ? "" : "s"} on record.`
+            : undefined
+        }
+      >
+        {isLoading ? (
+          <div className="space-y-3">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="tx-skeleton tx-skeleton-row" />
+            ))}
+          </div>
+        ) : isError ? (
+          <div className="tx-alert tx-alert-error">
+            Failed to load application history. Please try again.
+          </div>
+        ) : !hasHistory ? (
+          <div className="tx-panel tx-empty-state">
+            <p className="tx-sub-label" style={{ fontSize: "12px" }}>
+              No applications yet.
+            </p>
+            <Link href="/registration" className="tx-link mt-4 inline-block">
+              Start your first application →
+            </Link>
+          </div>
+        ) : (
+          <div className="tx-list-panel">
+            {applications.map((app) => {
               const cfg = statusConfig[app.status] ?? statusConfig.pending_review;
-              return (
-                <div key={app.id} className="tx-panel p-4">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <p className="tx-row-name">{app.business_name}</p>
-                      {app.rejection_reason && (
-                        <p className="mt-1 tx-sub-label">Note: {app.rejection_reason}</p>
-                      )}
-                    </div>
-                    <span className={cfg.badgeClass}>{cfg.label}</span>
+              const isApprovedLink = app.status === "approved" && hasBusinesses;
+
+              const rowContent = (
+                <>
+                  <div className="tx-list-row-main">
+                    <p className="tx-row-name truncate">{app.business_name}</p>
+                    {app.rejection_reason ? (
+                      <p className="tx-sub-label truncate">{app.rejection_reason}</p>
+                    ) : isApprovedLink ? (
+                      <p className="tx-sub-label">Approved — manage in dashboard</p>
+                    ) : app.status === "pending_review" ? (
+                      <p className="tx-sub-label">Under admin review</p>
+                    ) : null}
                   </div>
+                  <div className="tx-list-row-meta">
+                    <span className={cfg.badgeClass}>{cfg.label}</span>
+                    {isApprovedLink && (
+                      <span className="tx-row-link-chevron" aria-hidden="true">→</span>
+                    )}
+                  </div>
+                </>
+              );
+
+              if (isApprovedLink) {
+                return (
+                  <Link key={app.id} href="/dashboard" className="tx-list-row">
+                    {rowContent}
+                  </Link>
+                );
+              }
+
+              return (
+                <div key={app.id} className="tx-list-row">
+                  {rowContent}
                 </div>
               );
-            })
-          )}
-        </div>
-
-        {/* Footer nav */}
-        <div className="mt-6">
-          <Link
-            href="/register"
-            className="tx-sub-label hover:text-accent transition-colors"
-            style={{ fontSize: "12px" }}
-          >
-            ← Back to register
-          </Link>
-        </div>
-      </main>
-    </div>
+            })}
+          </div>
+        )}
+      </OwnerSection>
+    </OwnerAppShell>
   );
 }
