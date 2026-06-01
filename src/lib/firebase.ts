@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, User } from "firebase/auth";
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithCustomToken, signOut, User } from "firebase/auth";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDq-F0DEMOXC0TjXY3PfjgUgktJg4TPQDw",
@@ -22,6 +22,12 @@ export async function signInWithEmail(email: string, password: string) {
 
 export async function signUpWithEmail(email: string, password: string) {
   const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+  const token = await userCredential.user.getIdToken();
+  return { uid: userCredential.user.uid, token };
+}
+
+export async function signInWithCustomTokenAuth(customToken: string) {
+  const userCredential = await signInWithCustomToken(auth, customToken);
   const token = await userCredential.user.getIdToken();
   return { uid: userCredential.user.uid, token };
 }

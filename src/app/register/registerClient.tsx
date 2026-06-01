@@ -1,25 +1,27 @@
 "use client";
 
 import { useMutation } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { ThemeToggle } from "@/features/owner/components/theme-toggle";
-import { exchangeHandoffToken } from "@/features/auth/api/exchange-handoff";
+import { HandoffError, completeMobileHandoff } from "@/features/auth/handoff/complete-handoff";
 import { resolvePostAuthDestinationFromToken } from "@/lib/owner-account";
 import { ApiError } from "@/lib/api-client";
-import { useSessionStore } from "@/store/session-store";
 
 const authErrorMessages: Record<string, string> = {
   expired_token: "This link has expired. Please open TaxiMela app and request a new link.",
   invalid_token: "This link is invalid. Please retry from TaxiMela app.",
   used_token:    "This link has already been used. Please request a fresh link in TaxiMela app.",
+  handoff_expired: "This link has expired. Please open TaxiMela app and request a new link.",
+  handoff_invalid: "This link is invalid. Please retry from TaxiMela app.",
+  handoff_used:    "This link has already been used. Please request a fresh link in TaxiMela app.",
 };
 
 function getAuthErrorMessage(error: unknown) {
   if (error instanceof ApiError && error.code && authErrorMessages[error.code]) {
     return authErrorMessages[error.code];
   }
+  if (error instanceof HandoffError) return error.message;
   if (error instanceof Error) return error.message;
   return "Unable to verify your link right now. Please try again.";
 }
@@ -28,24 +30,18 @@ export default function RegisterClient() {
   const router       = useRouter();
   const searchParams = useSearchParams();
   const handoffToken = searchParams.get("handoff");
-  const setSession   = useSessionStore((state) => state.setSession);
   const attemptedRef = useRef<string | null>(null);
   const [statusText, setStatusText] = useState("Verifying your link…");
 
-  const exchangeMutation = useMutation({
-    mutationFn: exchangeHandoffToken,
-    onSuccess: async (result) => {
-      // 1. Store session
-      setSession({ ownerId: result.ownerId, accessToken: result.accessToken });
-
-      // 2. Check submission history to decide where to send the owner
+  const handoffMutation = useMutation({
+    mutationFn: completeMobileHandoff,
+    onSuccess: async ({ accessToken }) => {
       setStatusText("Checking your account…");
-      const destination = await resolvePostAuthDestinationFromToken(
-        result.accessToken,
-      ).catch(() => "/registration");
-
-      // 3. Route
-      router.push(destination);
+      const destination = await resolvePostAuthDestinationFromToken(accessToken).catch(
+        () => "/registration",
+      );
+      // Navigate away — removes handoff token from browser history
+      router.replace(destination);
     },
   });
 
@@ -53,10 +49,9 @@ export default function RegisterClient() {
     if (!handoffToken) return;
     if (attemptedRef.current === handoffToken) return;
     attemptedRef.current = handoffToken;
-    exchangeMutation.mutate(handoffToken);
-  }, [handoffToken, exchangeMutation]);
+    handoffMutation.mutate(handoffToken);
+  }, [handoffToken, handoffMutation]);
 
-  /* ── No token in URL ── */
   if (!handoffToken) {
     return (
       <div style={pageStyle}>
@@ -73,23 +68,18 @@ export default function RegisterClient() {
     );
   }
 
-  /* ── Token present — show exchange / routing state ── */
   return (
     <div style={pageStyle}>
       <div style={{ position: "absolute", top: "16px", right: "16px" }}>
         <ThemeToggle />
       </div>
       <div style={{ width: "100%", maxWidth: "360px", textAlign: "center" }}>
-
-        {/* Brand */}
         <h1 style={brandStyle}>
           Taximela<span style={{ color: "var(--accent)" }}>.</span>
         </h1>
 
-        {/* Pending / checking */}
-        {(exchangeMutation.isPending || exchangeMutation.isSuccess) && (
+        {(handoffMutation.isPending || handoffMutation.isSuccess) && (
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "12px" }}>
-            {/* Spinner */}
             <div style={{
               width:        "20px",
               height:       "20px",
@@ -104,11 +94,10 @@ export default function RegisterClient() {
           </div>
         )}
 
-        {/* Error */}
-        {exchangeMutation.isError && (
+        {handoffMutation.isError && (
           <>
             <div style={errorBoxStyle}>
-              {getAuthErrorMessage(exchangeMutation.error)}
+              {getAuthErrorMessage(handoffMutation.error)}
             </div>
             <a href="/login" style={{ ...linkStyle, marginTop: "12px", display: "inline-block" }}>
               Go to login →
@@ -117,13 +106,11 @@ export default function RegisterClient() {
         )}
       </div>
 
-      {/* Spinner keyframe */}
       <style>{`@keyframes tx-spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }
 
-/* ── Shared styles ── */
 const pageStyle: React.CSSProperties = {
   position:       "relative",
   display:        "flex",

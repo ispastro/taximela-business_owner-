@@ -851,15 +851,43 @@ a.tx-list-row:hover {
   transition: border-color 150ms ease, color 150ms ease, background-color 150ms ease;
 }
 
-.tx-theme-toggle:hover {
-  border-color: var(--accent);
-  color: var(--accent);
-  background-color: var(--accent-dim);
+.tx-field-current {
+  font-family: var(--font-sans);
+  font-weight: 400;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text3);
+  margin-top: 6px;
 }
 
+.tx-field-current strong {
+  color: var(--text2);
+  font-weight: 500;
+}
 
-/* ─────────────────────────────────────────────
-   LEAFLET OVERRIDES
+.tx-readonly-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.tx-readonly-item {
+  padding: 14px 16px;
+  background-color: var(--bg3);
+  border: 1px solid var(--panel-border);
+}
+
+.tx-readonly-item .tx-label {
+  margin-bottom: 6px;
+}
+
+.tx-readonly-value {
+  font-family: var(--font-sans);
+  font-weight: 500;
+  font-size: 12px;
+  color: var(--text);
+  word-break: break-word;
+}
+
    Make the map match the dark shell
    ───────────────────────────────────────────── */
 .leaflet-container {
