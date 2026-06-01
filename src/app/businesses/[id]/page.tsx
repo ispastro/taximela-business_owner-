@@ -12,6 +12,7 @@ import { OwnerLoadingScreen } from "@/features/owner/components/owner-loading-sc
 import { OwnerPageHeader } from "@/features/owner/components/owner-page-header";
 import { OwnerSection } from "@/features/owner/components/owner-section";
 import { RequiresApprovedBusiness } from "@/features/owner/components/requires-approved-business";
+import { SubscriptionCard } from "@/features/subscription/components/subscription-card";
 import {
   getBusinessById,
   getBusinessCategories,
@@ -227,6 +228,11 @@ function BusinessDetailContent({
 
       {!isEditing && (
         <div className="space-y-3">
+          {/* ── Subscription / Featured status ── */}
+          <OwnerSection title="Featured Listing">
+            <SubscriptionCard businessId={id} />
+          </OwnerSection>
+
           <div className="tx-panel p-4">
             <p className="tx-label mb-2">Business Name</p>
             <p className="tx-row-name">{business.name}</p>
