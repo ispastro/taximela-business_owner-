@@ -8,7 +8,6 @@ import { useMemo, useRef, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { z } from "zod";
 import { OwnerAppShell } from "@/features/owner/components/owner-app-shell";
-import { OwnerPageHeader } from "@/features/owner/components/owner-page-header";
 import { getBusinessCategories, submitBusinessRegistration } from "@/features/registration/api/registration";
 import { OWNER_ACCOUNT_QUERY_KEY } from "@/features/owner/hooks/use-owner-account";
 import { uploadToCloudinary } from "@/lib/cloudinary";
@@ -23,6 +22,7 @@ const LocationPickerMap = dynamic(
   { ssr: false },
 );
 
+/* ── Zod schema ── */
 const registrationSchema = z.object({
   business_name:           z.string().trim().min(1, "Business name is required"),
   category_id:             z.string().min(1, "Category is required"),
@@ -40,36 +40,88 @@ const registrationSchema = z.object({
 
 type RegistrationFormValues = z.infer<typeof registrationSchema>;
 
-function SectionTitle({
-  number,
-  title,
-  subtitle,
+/* ── Step definitions ── */
+const STEPS = [
+  { id: 1, label: "Owner Verification",  short: "Owner"    },
+  { id: 2, label: "Business Verification", short: "Business" },
+  { id: 3, label: "Business Details",    short: "Details"  },
+  { id: 4, label: "Service Location",    short: "Location" },
+] as const;
+
+/* ── Step indicator ── */
+function StepIndicator({
+  current,
+  total,
+  steps,
 }: {
-  number: number;
-  title: string;
-  subtitle: string;
+  current: number;
+  total: number;
+  steps: typeof STEPS;
 }) {
   return (
-    <div className="mb-5 flex items-start gap-3">
-      <span
-        className="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center text-xs font-bold"
-        style={{
-          background: "var(--accent-dim)",
-          color: "var(--accent)",
-          border: "1px solid color-mix(in srgb, var(--accent) 30%, transparent)",
-          borderRadius: 0,
-        }}
-      >
-        {number}
-      </span>
-      <div>
-        <h2 className="tx-panel-title">{title}</h2>
-        <p className="tx-sub-label mt-0.5">{subtitle}</p>
-      </div>
+    <div style={{
+      display:        "flex",
+      alignItems:     "center",
+      marginBottom:   "32px",
+      overflowX:      "auto",
+      paddingBottom:  "4px",
+    }}>
+      {steps.map((step, idx) => {
+        const done    = step.id < current;
+        const active  = step.id === current;
+        const pending = step.id > current;
+
+        return (
+          <div key={step.id} style={{ display: "flex", alignItems: "center", flex: idx < total - 1 ? 1 : "none" }}>
+            {/* Step node */}
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "6px", minWidth: "80px" }}>
+              <div style={{
+                width:           "28px",
+                height:          "28px",
+                display:         "flex",
+                alignItems:      "center",
+                justifyContent:  "center",
+                fontFamily:      "var(--font-sans)",
+                fontWeight:      700,
+                fontSize:        "11px",
+                background:      done ? "var(--accent)" : active ? "var(--accent-dim)" : "var(--bg3)",
+                color:           done ? "var(--bg)" : active ? "var(--accent)" : "var(--text3)",
+                border:          active ? "1.5px solid var(--accent)" : done ? "none" : "1px solid var(--border)",
+                transition:      "all 150ms",
+              }}>
+                {done ? "✓" : step.id}
+              </div>
+              <span style={{
+                fontFamily:    "var(--font-sans)",
+                fontSize:      "10px",
+                fontWeight:    active ? 600 : 400,
+                color:         active ? "var(--text)" : done ? "var(--accent)" : "var(--text3)",
+                whiteSpace:    "nowrap",
+                textAlign:     "center",
+              }}>
+                {step.short}
+              </span>
+            </div>
+
+            {/* Connector line */}
+            {idx < total - 1 && (
+              <div style={{
+                flex:            1,
+                height:          "1px",
+                background:      done ? "var(--accent)" : "var(--border)",
+                margin:          "0 4px",
+                marginBottom:    "20px",
+                transition:      "background 150ms",
+              }} />
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
 
+/* ── File upload field ── */
 function FileInput({
   label,
   hint,
@@ -84,7 +136,6 @@ function FileInput({
   previewUrl: string | null;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
-
   return (
     <div className="mt-4">
       <p className="tx-label mb-1.5">{label}</p>
@@ -116,6 +167,64 @@ function FileInput({
   );
 }
 
+/* ── Nav buttons ── */
+function StepNav({
+  step,
+  total,
+  onBack,
+  onNext,
+  isSubmitting,
+  isLastStep,
+}: {
+  step: number;
+  total: number;
+  onBack: () => void;
+  onNext: () => void;
+  isSubmitting: boolean;
+  isLastStep: boolean;
+}) {
+  return (
+    <div style={{
+      display:        "flex",
+      alignItems:     "center",
+      justifyContent: "space-between",
+      marginTop:      "32px",
+      paddingTop:     "20px",
+      borderTop:      "1px solid var(--border)",
+    }}>
+      <button
+        type="button"
+        onClick={onBack}
+        className="tx-btn-ghost"
+        style={{ visibility: step === 1 ? "hidden" : "visible" }}
+      >
+        ← Back
+      </button>
+
+      {isLastStep ? (
+        <button
+          type="submit"
+          disabled={isSubmitting}
+          className="tx-btn-primary"
+          style={{ height: "40px", minWidth: "180px", fontSize: "13px" }}
+        >
+          {isSubmitting ? "Submitting…" : "Submit Application"}
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={onNext}
+          className="tx-btn-primary"
+          style={{ height: "40px", minWidth: "140px", fontSize: "13px" }}
+        >
+          Continue →
+        </button>
+      )}
+    </div>
+  );
+}
+
+/* ── Page ── */
 export default function RegistrationPage() {
   return (
     <ProtectedRoute>
@@ -125,40 +234,58 @@ export default function RegistrationPage() {
 }
 
 function RegistrationForm() {
-  const router       = useRouter();
-  const queryClient  = useQueryClient();
-  const accessToken  = useSessionStore((s) => s.accessToken);
-  const [govIdPreview,    setGovIdPreview]    = useState<string | null>(null);
-  const [licensePreview,  setLicensePreview]  = useState<string | null>(null);
+  const router      = useRouter();
+  const queryClient = useQueryClient();
+  const accessToken = useSessionStore((s) => s.accessToken);
+
+  const [step,          setStep]          = useState(1);
+  const [govIdPreview,  setGovIdPreview]  = useState<string | null>(null);
+  const [licPreview,    setLicPreview]    = useState<string | null>(null);
 
   const { data: categories = [], isLoading: categoriesLoading } = useQuery({
     queryKey: ["business-categories"],
-    queryFn: getBusinessCategories,
+    queryFn:  getBusinessCategories,
   });
 
-  const defaultValues = useMemo(
-    () => ({
-      business_name:           "",
-      category_id:             "",
-      government_id_fan:       "",
-      business_licence_number: "",
-      government_id_photo:     undefined as unknown as File,
-      business_license_photo:  undefined as unknown as File,
-      locationLat:             null as unknown as number,
-      locationLng:             null as unknown as number,
-    }),
-    [],
-  );
+  const defaultValues = useMemo(() => ({
+    business_name:           "",
+    category_id:             "",
+    government_id_fan:       "",
+    business_licence_number: "",
+    government_id_photo:     undefined as unknown as File,
+    business_license_photo:  undefined as unknown as File,
+    locationLat:             null as unknown as number,
+    locationLng:             null as unknown as number,
+  }), []);
 
   const {
     register,
     control,
     handleSubmit,
+    trigger,
     formState: { errors },
   } = useForm<RegistrationFormValues>({
-    resolver: zodResolver(registrationSchema),
+    resolver:      zodResolver(registrationSchema),
     defaultValues,
+    mode:          "onTouched",
   });
+
+  /* Fields validated per step */
+  const stepFields: Record<number, (keyof RegistrationFormValues)[]> = {
+    1: ["government_id_fan", "business_licence_number", "government_id_photo"],
+    2: ["business_name", "business_license_photo"],
+    3: ["category_id"],
+    4: ["locationLat", "locationLng"],
+  };
+
+  async function handleNext() {
+    const valid = await trigger(stepFields[step]);
+    if (valid) setStep((s) => Math.min(s + 1, STEPS.length));
+  }
+
+  function handleBack() {
+    setStep((s) => Math.max(s - 1, 1));
+  }
 
   const submitMutation = useMutation({
     mutationFn: async (values: RegistrationFormValues) => {
@@ -187,23 +314,28 @@ function RegistrationForm() {
   });
 
   return (
-    <OwnerAppShell width="wide">
-      <OwnerPageHeader
-        eyebrow="Onboarding"
-        title="New Business Application"
-        description="Complete all sections below to submit your business for admin review."
-        backHref="/status"
-        backLabel="Application history"
-      />
+    <OwnerAppShell width="medium">
+      {/* Page title */}
+      <div style={{ marginBottom: "28px" }}>
+        <p className="tx-section-header" style={{ marginBottom: "6px" }}>Onboarding</p>
+        <h1 className="tx-page-title">New Business Application</h1>
+        <p className="tx-page-desc" style={{ marginTop: "6px" }}>
+          Complete all steps to submit your business for admin review.
+        </p>
+      </div>
 
-      <form onSubmit={handleSubmit((values) => submitMutation.mutate(values))}>
-        <div className="grid gap-6 lg:grid-cols-2 lg:gap-10">
+      {/* Step indicator */}
+      <StepIndicator current={step} total={STEPS.length} steps={STEPS} />
 
-            {/* ── Left column ── */}
-            <section className="space-y-0">
+      {/* Step content panel */}
+      <div className="tx-panel" style={{ padding: "28px 24px" }}>
+        <form onSubmit={handleSubmit((v) => submitMutation.mutate(v))}>
 
-              {/* Section 1 */}
-              <SectionTitle number={1} title="Owner Verification" subtitle="Identity and tax documents." />
+          {/* ── Step 1: Owner Verification ── */}
+          {step === 1 && (
+            <div>
+              <p className="tx-panel-title" style={{ marginBottom: "4px" }}>Owner Verification</p>
+              <p className="tx-sub-label" style={{ marginBottom: "20px" }}>Identity and tax documents.</p>
 
               <label className="tx-label block mb-1.5" htmlFor="government_id_fan">
                 National ID Number
@@ -221,7 +353,7 @@ function RegistrationForm() {
               )}
               <p className="mt-1 tx-sub-label">Your Ethiopian National ID number</p>
 
-              <label className="tx-label block mt-4 mb-1.5" htmlFor="business_licence_number">
+              <label className="tx-label block mt-5 mb-1.5" htmlFor="business_licence_number">
                 Business License Number
               </label>
               <input
@@ -253,11 +385,14 @@ function RegistrationForm() {
                   />
                 )}
               />
+            </div>
+          )}
 
-              <hr className="tx-divider" />
-
-              {/* Section 2 */}
-              <SectionTitle number={2} title="Business Verification" subtitle="Official business documents." />
+          {/* ── Step 2: Business Verification ── */}
+          {step === 2 && (
+            <div>
+              <p className="tx-panel-title" style={{ marginBottom: "4px" }}>Business Verification</p>
+              <p className="tx-sub-label" style={{ marginBottom: "20px" }}>Official business documents.</p>
 
               <label className="tx-label block mb-1.5" htmlFor="business_name">
                 Business Name
@@ -282,21 +417,24 @@ function RegistrationForm() {
                     label="Business License Photo"
                     hint="Upload a clear photo of your Business License (JPG, PNG, PDF — max 5MB)"
                     error={errors.business_license_photo?.message}
-                    previewUrl={licensePreview}
+                    previewUrl={licPreview}
                     onChange={(file) => {
                       field.onChange(file);
-                      setLicensePreview(URL.createObjectURL(file));
+                      setLicPreview(URL.createObjectURL(file));
                     }}
                   />
                 )}
               />
+            </div>
+          )}
 
-              <hr className="tx-divider" />
+          {/* ── Step 3: Business Details ── */}
+          {step === 3 && (
+            <div>
+              <p className="tx-panel-title" style={{ marginBottom: "4px" }}>Business Details</p>
+              <p className="tx-sub-label" style={{ marginBottom: "20px" }}>Service categorization.</p>
 
-              {/* Section 3 */}
-              <SectionTitle number={3} title="Business Details" subtitle="Service categorization." />
-
-              <label className="tx-label block mt-4 mb-1.5" htmlFor="category_id">
+              <label className="tx-label block mb-1.5" htmlFor="category_id">
                 Category
               </label>
               <select
@@ -305,12 +443,10 @@ function RegistrationForm() {
                 {...register("category_id")}
               >
                 <option value="">
-                  {categoriesLoading ? "Loading categories…" : "Select Category"}
+                  {categoriesLoading ? "Loading categories…" : "Select a category"}
                 </option>
                 {categories.map((cat) => (
-                  <option key={cat.id} value={cat.id}>
-                    {cat.name}
-                  </option>
+                  <option key={cat.id} value={cat.id}>{cat.name}</option>
                 ))}
               </select>
               {errors.category_id && (
@@ -318,11 +454,16 @@ function RegistrationForm() {
                   {errors.category_id.message}
                 </p>
               )}
-            </section>
+            </div>
+          )}
 
-            {/* ── Right column ── */}
-            <section>
-              <SectionTitle number={4} title="Service Location" subtitle="Pin your business on the map." />
+          {/* ── Step 4: Service Location ── */}
+          {step === 4 && (
+            <div>
+              <p className="tx-panel-title" style={{ marginBottom: "4px" }}>Service Location</p>
+              <p className="tx-sub-label" style={{ marginBottom: "20px" }}>
+                Pin your exact business location on the map.
+              </p>
 
               <Controller
                 control={control}
@@ -346,33 +487,30 @@ function RegistrationForm() {
               />
               {(errors.locationLat || errors.locationLng) && (
                 <p className="mt-2 text-xs" style={{ color: "var(--red)" }}>
-                  Map pin is required
+                  Please click the map to pin your location
                 </p>
               )}
-            </section>
-          </div>
 
-          {/* Submit bar */}
-          <div className="tx-panel mt-8 flex flex-col items-start gap-4 p-5">
-            <p className="tx-sub-label" style={{ fontSize: "12px" }}>
-              All fields are required unless marked optional.
-            </p>
-            <button
-              type="submit"
-              disabled={submitMutation.isPending}
-              className="tx-btn-primary w-full sm:w-auto"
-              style={{ height: "44px", minWidth: "220px", fontSize: "13px" }}
-            >
-              {submitMutation.isPending ? "Submitting…" : "Submit Application"}
-            </button>
-          </div>
-
-          {submitMutation.isError && (
-            <div className="mt-4 tx-alert tx-alert-error">
-              {(submitMutation.error as Error).message || "Submission failed. Please try again."}
+              {/* Submission error */}
+              {submitMutation.isError && (
+                <div className="mt-4 tx-alert tx-alert-error">
+                  {(submitMutation.error as Error).message || "Submission failed. Please try again."}
+                </div>
+              )}
             </div>
           )}
+
+          {/* ── Navigation ── */}
+          <StepNav
+            step={step}
+            total={STEPS.length}
+            onBack={handleBack}
+            onNext={handleNext}
+            isSubmitting={submitMutation.isPending}
+            isLastStep={step === STEPS.length}
+          />
         </form>
+      </div>
     </OwnerAppShell>
   );
 }
