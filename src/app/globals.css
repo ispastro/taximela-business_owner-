@@ -42,10 +42,10 @@
 }
 
 [data-theme="light"] {
-  --bg:           #F3F5F9;
+  --bg:           #FFFFFF;   /* page — same as navbar, seamless */
   --bg2:          #FFFFFF;
-  --bg3:          #E9EDF4;
-  --bg4:          #DDE3EE;
+  --bg3:          #F3F5F9;
+  --bg4:          #E9EDF4;
 
   --border:       #D5DCE8;
   --border2:      #B8C2D4;
@@ -645,15 +645,16 @@ a.tx-btn-ghost {
 .tx-page-header {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
   margin-bottom: 24px;
 }
 
 @media (min-width: 640px) {
   .tx-page-header {
     flex-direction: row;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
+    gap: 24px;
   }
 }
 
@@ -663,6 +664,7 @@ a.tx-btn-ghost {
   align-items: center;
   gap: 8px;
   flex-shrink: 0;
+  padding-top: 2px; /* aligns button baseline with title */
 }
 
 .tx-section {
@@ -674,8 +676,8 @@ a.tx-btn-ghost {
 }
 
 .tx-page-header-divider {
-  margin-bottom: 32px;
-  padding-bottom: 28px;
+  margin-bottom: 28px;
+  padding-bottom: 24px;
   border-bottom: 1px solid var(--panel-border);
 }
 
@@ -684,7 +686,7 @@ a.tx-btn-ghost {
 }
 
 .tx-dashboard-block {
-  margin-bottom: 40px;
+  margin-bottom: 32px;
 }
 
 .tx-dashboard-block-label {
@@ -708,7 +710,7 @@ a.tx-btn-ghost {
   align-items: flex-end;
   justify-content: space-between;
   gap: 16px;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
 .tx-metric-card {
@@ -888,6 +890,8 @@ a.tx-list-row:hover {
   word-break: break-word;
 }
 
+/* ─────────────────────────────────────────────
+   LEAFLET OVERRIDES
    Make the map match the dark shell
    ───────────────────────────────────────────── */
 .leaflet-container {

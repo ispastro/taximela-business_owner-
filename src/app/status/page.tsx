@@ -54,7 +54,7 @@ function StatusContent() {
       : "Submit your first business registration to get started.";
 
   return (
-    <OwnerAppShell width="narrow">
+    <OwnerAppShell width="default">
       <OwnerPageHeader
         divider
         eyebrow="Applications"
