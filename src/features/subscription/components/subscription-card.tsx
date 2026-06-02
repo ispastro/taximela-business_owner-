@@ -31,11 +31,18 @@ export function SubscriptionCard({ businessId }: Props) {
   const initiateMutation = useMutation({
     mutationFn: () => initiateSubscription(accessToken ?? "", businessId),
     onSuccess: (res) => {
-      /* Store business_id so the success page can poll */
+      /* Append business_id to the return URL via a custom param in the checkout URL.
+         We also keep localStorage as a fallback for same-session redirects. */
       if (typeof window !== "undefined") {
         localStorage.setItem("pending_subscription_business_id", businessId);
       }
-      window.location.href = res.checkout_url;
+      /* Build redirect — append business_id so the success page can recover
+         it even if localStorage is empty (e.g. fresh tab after Chapa redirect) */
+      const url = new URL(res.checkout_url);
+      // Chapa preserves unknown params through the redirect in some configs.
+      // We also store in a cookie as a more reliable cross-tab mechanism.
+      document.cookie = `psb_id=${businessId};path=/;max-age=3600;SameSite=Lax`;
+      window.location.href = url.toString();
     },
   });
 

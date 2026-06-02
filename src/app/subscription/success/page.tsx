@@ -6,7 +6,25 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import { getSubscriptionStatus } from "@/features/subscription/api/subscription";
 import { useSessionStore } from "@/store/session-store";
 
-const MAX_POLLS    = 10;   // 10 × 3s = 30s max
+function getStoredBusinessId(): string | null {
+  if (typeof window === "undefined") return null;
+
+  // Try localStorage first (same-session)
+  const fromStorage = localStorage.getItem("pending_subscription_business_id");
+  if (fromStorage) return fromStorage;
+
+  // Try cookie fallback (cross-tab, survives Chapa redirect to fresh tab)
+  const match = document.cookie.match(/(?:^|;\s*)psb_id=([^;]+)/);
+  return match ? match[1] : null;
+}
+
+function clearStoredBusinessId() {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem("pending_subscription_business_id");
+  document.cookie = "psb_id=;path=/;max-age=0";
+}
+
+const MAX_POLLS     = 10;
 const POLL_INTERVAL = 3000;
 
 function SuccessContent() {
@@ -14,8 +32,9 @@ function SuccessContent() {
   const txRef        = searchParams.get("tx_ref");
   const accessToken  = useSessionStore((s) => s.accessToken);
 
-  const [state, setState] = useState<"polling" | "success" | "timeout" | "error">("polling");
+  const [state,      setState]      = useState<"polling" | "success" | "timeout" | "error">("polling");
   const [expiryDate, setExpiryDate] = useState<string | null>(null);
+  const [businessId, setBusinessId] = useState<string | null>(null);
   const pollCount = useRef(0);
 
   useEffect(() => {
@@ -24,16 +43,13 @@ function SuccessContent() {
       return;
     }
 
-    /* Read business_id stored before Chapa redirect */
-    const businessId =
-      typeof window !== "undefined"
-        ? localStorage.getItem("pending_subscription_business_id")
-        : null;
-
-    if (!businessId) {
+    const bid = getStoredBusinessId();
+    if (!bid) {
       setState("error");
       return;
     }
+
+    setBusinessId(bid);
 
     let cancelled = false;
 
@@ -43,16 +59,14 @@ function SuccessContent() {
         setState("timeout");
         return;
       }
-
       pollCount.current += 1;
-
       try {
-        const data = await getSubscriptionStatus(accessToken!, businessId!);
+        const data = await getSubscriptionStatus(accessToken!, bid!);
         if (data.is_featured && data.featured_until) {
           if (!cancelled) {
             setExpiryDate(data.featured_until);
             setState("success");
-            localStorage.removeItem("pending_subscription_business_id");
+            clearStoredBusinessId();
           }
         } else {
           setTimeout(poll, POLL_INTERVAL);
@@ -65,11 +79,6 @@ function SuccessContent() {
     void poll();
     return () => { cancelled = true; };
   }, [txRef, accessToken]);
-
-  const businessId =
-    typeof window !== "undefined"
-      ? localStorage.getItem("pending_subscription_business_id")
-      : null;
 
   return (
     <div style={{
